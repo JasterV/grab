@@ -1,3 +1,12 @@
+//! # JSON <-> Protobuf Codec
+//!
+//! This module implements a custom `tonic::codec::Codec` that allows `tonic` to work
+//! directly with `serde_json::Value`.
+//!
+//! It acts as a bridge:
+//! - **Encoding (Request):** Takes a JSON value -> Validates against Schema -> Serializes to Protobuf bytes.
+//! - **Decoding (Response):** Takes Protobuf bytes -> Deserializes using Schema -> Converts to JSON value.
+
 use prost::Message;
 use prost_reflect::{DynamicMessage, MessageDescriptor};
 use tonic::{
@@ -5,14 +14,23 @@ use tonic::{
     codec::{Codec, DecodeBuf, Decoder, EncodeBuf, Encoder},
 };
 
-/// A Codec that bridges serde_json::Value <-> Protobuf bytes.
-#[derive(Debug, Clone)]
+/// A custom Codec that bridges `serde_json::Value` and Protobuf binary format.
+///
+/// It holds the descriptors (schemas) for both the request and the response messages,
+/// allowing it to perform dynamic serialization.
 pub struct JsonCodec {
+    /// Schema for the input message.
     req_desc: MessageDescriptor,
+    /// Schema for the output message.
     res_desc: MessageDescriptor,
 }
 
 impl JsonCodec {
+    /// Creates a new `JsonCodec`.
+    ///
+    /// # Arguments
+    /// * `req_desc` - Descriptor for the request message type.
+    /// * `res_desc` - Descriptor for the response message type.    
     pub fn new(req_desc: MessageDescriptor, res_desc: MessageDescriptor) -> Self {
         Self { req_desc, res_desc }
     }
@@ -34,6 +52,7 @@ impl Codec for JsonCodec {
     }
 }
 
+/// Responsible for encoding a JSON value into Protobuf bytes.
 pub struct JsonEncoder(MessageDescriptor);
 
 impl Encoder for JsonEncoder {
@@ -55,6 +74,7 @@ impl Encoder for JsonEncoder {
     }
 }
 
+/// Responsible for decoding Protobuf bytes into a JSON value.
 pub struct JsonDecoder(MessageDescriptor);
 
 impl Decoder for JsonDecoder {

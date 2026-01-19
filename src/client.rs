@@ -1,3 +1,11 @@
+//! # gRPC Client Module
+//!
+//! This module provides the `GrpcClient`, which is responsible for establishing connections
+//! to gRPC servers and performing requests dynamically.
+//!
+//! Unlike standard gRPC clients that are generated at compile-time, this client uses
+//! `prost-reflect` to look up service and method definitions at runtime.
+
 use crate::codec::JsonCodec;
 use prost_reflect::DescriptorPool;
 use std::str::FromStr;
@@ -12,6 +20,7 @@ use tonic::{
     transport::Channel,
 };
 
+/// Represents all possible errors that can occur within the gRPC Client.
 #[derive(Error, Debug)]
 pub enum ClientError {
     #[error("Invalid uri '{addr}' provided: '{source}'")]
@@ -54,12 +63,26 @@ pub enum ClientError {
     GrpcStatus(#[from] tonic::Status),
 }
 
+/// A dynamic gRPC client wrapper.
+///
+/// It holds the network channel (connection) and the pool of Protobuf descriptors
+/// required to serialize and deserialize messages at runtime.
 pub struct GrpcClient {
     channel: Channel,
     pool: DescriptorPool,
 }
 
 impl GrpcClient {
+    /// Creates a new `GrpcClient`.
+    ///
+    /// # Arguments
+    ///
+    /// * `addr` - The server address to connect to (e.g., `http://localhost:50051`).
+    /// * `descriptor_bytes` - The raw bytes of the `descriptor.bin` file.
+    ///
+    /// # Returns
+    ///
+    /// A connected client instance or a `ClientError`.    
     pub async fn new(addr: &str, descriptor_bytes: &[u8]) -> Result<Self, ClientError> {
         let pool = DescriptorPool::decode(descriptor_bytes)?;
 
@@ -78,11 +101,18 @@ impl GrpcClient {
         Ok(Self { channel, pool })
     }
 
-    /// Performs a unary gRPC call.
+    /// Performs a unary gRPC call (Request -> Response).
+    ///
+    /// This method:
+    /// 1. Looks up the service and method definitions in the descriptor pool.
+    /// 2. Sends the request using a custom `JsonCodec`.
+    /// 3. Decodes the response back into JSON.
     ///
     /// # Arguments
     /// * `service_name` - The full name of the service (e.g. `my.package.MyService`)
     /// * `method_name` - The short name of the method (e.g. `MyMethod`)
+    /// * `payload` - The JSON request body.
+    /// * `headers` - A list of custom headers to attach.
     pub async fn unary(
         &self,
         service_name: &str,
