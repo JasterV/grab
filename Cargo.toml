@@ -1,0 +1,15 @@
+[package]
+name = "grab"
+version = "0.1.0"
+edition = "2024"
+description = "A dynamic gRPC CLI tool written in Rust (gRPC + Crab)"
+
+[dependencies]
+clap = { version = "4.5.54", features = ["derive"] }
+http = "1.4.0"
+prost = "0.14.3"
+prost-reflect = { version = "0.16.3", features = ["serde"] }
+serde_json = "1.0.149"
+thiserror = "2.0.18"
+tokio = { version = "1.49.0", features = ["rt-multi-thread", "macros"] }
+tonic = "0.14.2"

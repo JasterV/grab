@@ -1,0 +1,41 @@
+[config]
+# Sets the default task to run when executing `cargo make` without arguments
+default_to_workspace = false
+skip_core_tasks = true
+
+# --- Main Flow Tasks ---
+
+[tasks.default]
+description = "Default task: Formats, Lints, and Builds"
+dependencies = ["fmt", "clippy", "build"]
+
+[tasks.ci]
+description = "CI task: Runs checks without modifying files (useful for CI pipelines)"
+dependencies = ["fmt-check", "clippy", "build"]
+
+# --- Atomic Tasks ---
+
+[tasks.build]
+description = "Compiles the project"
+command = "cargo"
+args = ["build"]
+
+[tasks.fmt]
+description = "Formats all source files"
+command = "cargo"
+args = ["fmt", "--all"]
+
+[tasks.fmt-check]
+description = "Checks formatting without modifying files (fails if unformatted)"
+command = "cargo"
+args = ["fmt", "--all", "--", "--check"]
+
+[tasks.clippy]
+description = "Runs Clippy lints"
+command = "cargo"
+args = ["clippy", "--all-targets", "--all-features", "--", "-D", "warnings"]
+
+[tasks.test]
+description = "Runs all tests"
+command = "cargo"
+args = ["test"]
