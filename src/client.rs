@@ -47,6 +47,9 @@ pub enum ClientError {
         source: InvalidMetadataValue,
     },
 
+    #[error("Internal error, the client was not ready to send the request: '{0}'")]
+    ClientNotReady(#[from] tonic::transport::Error),
+
     #[error("gRPC execution failed: '{0}'")]
     GrpcStatus(#[from] tonic::Status),
 }
@@ -129,11 +132,12 @@ impl GrpcClient {
 
         let codec = JsonCodec::new(method_descriptor.input(), method_descriptor.output());
 
-        let response = Grpc::new(self.channel.clone())
-            .unary(request, path, codec)
-            .await?
-            .into_inner();
+        let mut client = Grpc::new(self.channel.clone());
+        // Ensure the channel is ready to accept a request
+        client.ready().await?;
 
-        Ok(response)
+        let response = client.unary(request, path, codec).await?;
+
+        Ok(response.into_inner())
     }
 }

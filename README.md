@@ -75,12 +75,11 @@ Assuming you have a `Greeter` service running locally on port 50051:
 ```bash
 grab unary \
   --descriptor ./descriptor.bin \
-  --addr http://[::1]:50051 \
+  --addr http://localhost:50051 \
   --service helloworld.Greeter \
   --method SayHello \
-  --json '{"name": "Ferris"}' \
+  --json "$(< payload.json)" \
   -H "authorization: Bearer my-token"
-
 ```
 
 **Output:**
@@ -107,6 +106,11 @@ grab unary \
 
 * **Cause:** Your JSON payload has fields that don't exist in the proto message, or types are incorrect (e.g., string instead of int).
 * **Fix:** gRab validates this locally. Check your field names and types against the proto definition.
+
+**4. `h2 protocol error: error reading a body from connection`** (or `h2 protocol error`)
+
+* **Cause:** This often occurs when the JSON payload fails to encode *after* the connection has already been established. The client aborts the request stream mid-flight, causing the server to register a protocol error instead of a validation error.
+* **Fix:** Double-check your JSON payload against the Protobuf schema. Ensure all field names are correct and match the expected types (e.g., sending a string for an integer field, or using a field name that doesn't exist).
 
 ## 🤝 Contributing
 

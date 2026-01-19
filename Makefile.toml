@@ -14,6 +14,10 @@ description = "CI task: Runs checks without modifying files (useful for CI pipel
 dependencies = ["fmt-check", "clippy", "build"]
 
 # --- Atomic Tasks ---
+[tasks.run]
+description = "Runs the CLI tool with dynamic arguments"
+command = "cargo"
+args = ["run", "${@}"]
 
 [tasks.build]
 description = "Compiles the project"
