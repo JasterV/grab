@@ -5,6 +5,28 @@ on:
       - main
 
 jobs:
+  # Release unpublished packages.
+  release-plz-release:
+    name: Release-plz release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - run: rustup default 1.92.0
+      - name: Run release-plz
+        uses: release-plz/action@1efcf74dfcd6e500990dad806e286899ae384064 # v0.5.119
+        with:
+          command: release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_AUTH_KEY}}
+
   # Create a PR with the new versions and changelog, preparing the next release.
   release-plz-pr:
     name: Release-plz PR
@@ -29,26 +51,4 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_AUTH_KEY }}
-  # Release unpublished packages.
-  # release-plz-release:
-  #   name: Release-plz release
-  #   runs-on: ubuntu-latest
-  #   permissions:
-  #     contents: write
-  #     pull-requests: write
-  #   steps:
-  #     - &checkout
-  #       name: Checkout repository
-  #       uses: actions/checkout@v6
-  #       with:
-  #         fetch-depth: 0
-  #         persist-credentials: false
-  #     - run: rustup default 1.92.0
-  #     - name: Run release-plz
-  #       uses: release-plz/action@1efcf74dfcd6e500990dad806e286899ae384064 # v0.5.119
-  #       with:
-  #         command: release
-  #       env:
-  #         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  #         CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_AUTH_KEY}}
 
