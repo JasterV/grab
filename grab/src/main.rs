@@ -6,14 +6,10 @@
 //! 3. Connects to the gRPC server.
 //! 4. Dispatches the request to the appropriate method type (Unary, Streaming, etc.).
 
-mod client;
-mod codec;
-mod descriptor;
-
 use clap::Parser;
-use client::GrpcClient;
-use descriptor::DescriptorRegistry;
 use futures_util::{Stream, StreamExt};
+use grab::DescriptorRegistry;
+use grab::GrpcClient;
 use prost_reflect::MethodDescriptor;
 use std::path::PathBuf;
 use std::process;

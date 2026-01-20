@@ -1,0 +1,14 @@
+[package]
+name = "echo-service"
+edition = "2024"
+publish = false
+
+[dependencies]
+bytes = "1"
+prost = "0.14"
+tonic = "0.14"
+prost-types = "0.14"
+tonic-prost = "0.14.2"
+
+[build-dependencies]
+tonic-prost-build = "0.14"
