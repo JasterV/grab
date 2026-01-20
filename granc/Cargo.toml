@@ -1,7 +1,7 @@
 [package]
 authors = ["Victor Martínez Montané <jaster.victor@gmail.com>"]
 categories = ["network-programming", "command-line-utilities"]
-description = "A dynamic gRPC CLI tool written in Rust {Granc -> gRPC + Cranc (Crab in Catalan)}"
+description = "A dynamic gRPC CLI tool written in Rust (gRPC + Cranc, Crab in Catalan)"
 edition = "2024"
 homepage = "https://github.com/JasterV/granc"
 keywords = ["cli", "command-line", "grpc", "grpcurl", "curl"]
