@@ -18,7 +18,7 @@ jobs:
       - uses: actions/checkout@v6
       - run: rustup default 1.92.0
       - run: rustup component add clippy rustfmt
-      - uses: Swatinem/rust-cache@f13886b937689c021905a6b90929199931d60db1 # ratchet:Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # ratchet:Swatinem/rust-cache@v2
       - uses: taiki-e/install-action@ae532dedd825648efd18d9c49c9a443d0398ca0a # ratchet:taiki-e/install-action@cargo-make
       - name: Install protoc compiler
         run: |
