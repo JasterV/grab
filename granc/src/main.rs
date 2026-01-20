@@ -1,6 +1,6 @@
 #![doc = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/README.md"))]
 
-/// # gRab CLI Entry Point
+/// # Granc CLI Entry Point
 ///
 /// The main module orchestrates the CLI workflow:
 /// 1. Parses command-line arguments.
@@ -20,7 +20,7 @@ mod codec;
 mod descriptor;
 
 #[derive(Parser)]
-#[command(name = "grab", version, about = "Dynamic gRPC CLI")]
+#[command(name = "granc", version, about = "Dynamic gRPC CLI")]
 struct Cli {
     #[arg(long, help = "Path to the descriptor set (.bin)")]
     proto_set: PathBuf,

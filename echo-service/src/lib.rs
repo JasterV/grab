@@ -1,7 +1,7 @@
 //! # Echo Service
 //!
 //! **INTERNAL USE ONLY**: This crate exists solely to provide a gRPC server implementation
-//! and descriptor set for integration testing the `grab` CLI tool.
+//! and descriptor set for integration testing the `granc` CLI tool.
 //! It is not intended for production use.
 
 pub mod pb {

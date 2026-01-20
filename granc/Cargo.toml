@@ -1,15 +1,15 @@
 [package]
 authors = ["Victor Martínez Montané <jaster.victor@gmail.com>"]
 categories = ["network-programming", "command-line-utilities"]
-description = "A dynamic gRPC CLI tool written in Rust (gRPC + Crab)"
+description = "A dynamic gRPC CLI tool written in Rust {Granc -> gRPC + Cranc (Crab in Catalan)}"
 edition = "2024"
-homepage = "https://github.com/JasterV/grab"
+homepage = "https://github.com/JasterV/granc"
 keywords = ["cli", "command-line", "grpc", "grpcurl", "curl"]
 license = "MIT OR Apache-2.0"
-name = "grab"
+name = "granc"
 publish = true
 readme = "README.md"
-repository = "https://github.com/JasterV/grab"
+repository = "https://github.com/JasterV/granc"
 rust-version = "1.89"
 version = "0.1.0"
 

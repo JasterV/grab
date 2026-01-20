@@ -1,12 +1,12 @@
-# gRab 🦀
+# Granc 🦀
 
 > ⚠️ **Status: Experimental**
 >
 > This project is currently in a **highly experimental phase**. It is a working prototype intended for testing and development purposes. APIs, command-line arguments, and internal logic are subject to breaking changes. Please use with caution.
 
-**gRab** (gRPC + Crab) is a lightweight, dynamic gRPC CLI tool written in Rust.
+**Granc** {gRPC + Cranc (Crab in Catalan)} is a lightweight, dynamic gRPC CLI tool written in Rust.
 
-It allows you to make gRPC calls to any server using simple JSON payloads, without needing to compile the specific Protobuf files into the client. By loading a `FileDescriptorSet` at runtime, gRab acts as a bridge between human-readable JSON and binary Protobuf wire format.
+It allows you to make gRPC calls to any server using simple JSON payloads, without needing to compile the specific Protobuf files into the client. By loading a `FileDescriptorSet` at runtime, granc acts as a bridge between human-readable JSON and binary Protobuf wire format.
 
 It is heavily inspired by tools like `grpcurl` but built to leverage the safety and performance of the Rust ecosystem (Tonic + Prost).
 
@@ -26,14 +26,14 @@ It is heavily inspired by tools like `grpcurl` but built to leverage the safety 
 Ensure you have Rust and Cargo installed.
 
 ```bash
-git clone https://github.com/JasterV/grab
-cd grab
+git clone https://github.com/JasterV/granc
+cd granc
 cargo install --path .
 ```
 
 ## 🛠️ Prerequisites: Generating Descriptors
 
-To use gRab, you currently need a binary **FileDescriptorSet** (`.bin` or `.pb`). This file contains the schema definitions for your services.
+To use Granc, you currently need a binary **FileDescriptorSet** (`.bin` or `.pb`). This file contains the schema definitions for your services.
 
 You can generate this using the standard `protoc` compiler:
 
@@ -54,7 +54,7 @@ protoc \
 **Syntax:**
 
 ```bash
-grab [OPTIONS] <URL> <METHOD>
+granc [OPTIONS] <URL> <METHOD>
 
 ```
 
@@ -83,7 +83,7 @@ grab [OPTIONS] <URL> <METHOD>
 **1. Unary Call**
 
 ```bash
-grab \
+granc \
   --proto-set ./descriptor.bin \
   --body '{"name": "Ferris"}' \
   http://localhost:50051 \
@@ -93,7 +93,7 @@ grab \
 **2. Bidirectional Streaming (Chat)**
 
 ```bash
-grab \
+granc \
   --proto-set ./descriptor.bin \
   --body '[{"text": "Hello"}, {"text": "How are you?"}]' \
   -H "authorization: Bearer token123" \
