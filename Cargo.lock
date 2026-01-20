@@ -337,11 +337,14 @@ dependencies = [
  "http-body",
  "prost",
  "prost-reflect",
+ "prost-types",
  "serde_json",
  "thiserror",
  "tokio",
  "tokio-stream",
  "tonic",
+ "tonic-prost",
+ "tonic-prost-build",
 ]
 
 [[package]]

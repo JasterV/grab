@@ -1,4 +1,4 @@
-//! # Descriptor Registry
+//! # Local Reflection Service
 //!
 //! This module handles the loading and querying of Protobuf `FileDescriptorSet`s.
 //! It acts as a database of schema definitions, allowing the application to
@@ -6,11 +6,12 @@
 //! for reflection.
 
 use prost_reflect::{DescriptorPool, MethodDescriptor};
+use prost_types::FileDescriptorSet;
 use std::path::Path;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
-pub enum DescriptorError {
+pub enum ReflectionError {
     #[error("Failed to read descriptor file: {0}")]
     Io(#[from] std::io::Error),
     #[error("Failed to decode descriptor set: {0}")]
@@ -25,21 +26,26 @@ pub enum DescriptorError {
 
 /// A registry that holds loaded Protobuf definitions and allows looking up
 /// services and methods by name.
-pub struct DescriptorRegistry {
+pub struct LocalReflectionService {
     pool: DescriptorPool,
 }
 
-impl DescriptorRegistry {
+impl LocalReflectionService {
     /// Decodes a FileDescriptorSet directly from a byte slice.
     /// Useful for tests or embedded descriptors.
     #[cfg(test)]
-    pub fn from_bytes(bytes: &[u8]) -> Result<Self, DescriptorError> {
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, ReflectionError> {
         let pool = DescriptorPool::decode(bytes)?;
         Ok(Self { pool })
     }
 
+    pub fn from_file_descriptor_set(set: FileDescriptorSet) -> Result<Self, ReflectionError> {
+        let pool = DescriptorPool::from_file_descriptor_set(set)?;
+        Ok(Self { pool })
+    }
+
     /// Loads a FileDescriptorSet from a file on disk and builds the registry.
-    pub fn from_file(path: impl AsRef<Path>) -> Result<Self, DescriptorError> {
+    pub fn from_file(path: impl AsRef<Path>) -> Result<Self, ReflectionError> {
         let bytes = std::fs::read(path)?;
         let pool = DescriptorPool::decode(bytes.as_slice())?;
         Ok(Self { pool })
@@ -50,19 +56,19 @@ impl DescriptorRegistry {
     pub fn fetch_method_descriptor(
         &self,
         method_path: &str,
-    ) -> Result<MethodDescriptor, DescriptorError> {
+    ) -> Result<MethodDescriptor, ReflectionError> {
         let (service_name, method_name) = method_path
             .split_once('/')
-            .ok_or_else(|| DescriptorError::InvalidFormat(method_path.to_string()))?;
+            .ok_or_else(|| ReflectionError::InvalidFormat(method_path.to_string()))?;
 
         let service = self
             .pool
             .get_service_by_name(service_name)
-            .ok_or_else(|| DescriptorError::ServiceNotFound(service_name.to_string()))?;
+            .ok_or_else(|| ReflectionError::ServiceNotFound(service_name.to_string()))?;
 
         service
             .methods()
             .find(|m| m.name() == method_name)
-            .ok_or_else(|| DescriptorError::MethodNotFound(method_name.to_string()))
+            .ok_or_else(|| ReflectionError::MethodNotFound(method_name.to_string()))
     }
 }

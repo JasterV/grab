@@ -1,24 +1,22 @@
 [config]
-# Sets the default task to run when executing `cargo make` without arguments
 default_to_workspace = false
 skip_core_tasks = true
-
-# --- Main Flow Tasks ---
-
-[tasks.default]
-description = "Default task: Formats, Lints, and Builds"
-dependencies = ["fmt", "clippy", "build"]
 
 [tasks.ci]
 description = "CI task: Runs checks without modifying files"
 dependencies = ["fmt-check", "clippy", "test"]
 
-# --- Atomic Tasks ---
 [tasks.run]
 description = "Runs the CLI tool with dynamic arguments"
 command = "cargo"
 # Added '-p granc' to explicitly target the CLI binary in the workspace
 args = ["run", "-p", "granc", "${@}"]
+
+[tasks.test]
+description = "Runs tests for the granc crate only"
+command = "cargo"
+# Added '-p granc' to strictly run integration/unit tests for the CLI
+args = ["nextest", "run", "--no-fail-fast", "-p", "granc"]
 
 [tasks.fmt]
 description = "Formats all source files"
@@ -44,8 +42,14 @@ args = [
   "warnings",
 ]
 
-[tasks.test]
-description = "Runs tests for the granc crate only"
+
+[tasks.generate_reflection_service]
+description = "Runs a binary that generates a reflection service client from the reflection proto definitions"
 command = "cargo"
-# Added '-p granc' to strictly run integration/unit tests for the CLI
-args = ["nextest", "run", "--no-fail-fast", "-p", "granc"]
+args = [
+  "run",
+  "--bin",
+  "generate_reflection_service",
+  "--features",
+  "gen-proto",
+]

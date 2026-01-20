@@ -13,6 +13,18 @@ repository = "https://github.com/JasterV/granc"
 rust-version = "1.89"
 version = "0.1.0"
 
+[features]
+gen-proto = ["dep:tonic-prost-build"]
+
+[[bin]]
+name = "granc"
+path = "src/main.rs"
+
+[[bin]]
+name = "generate_reflection_service"
+path = "bin/generate_reflection_service.rs"
+required-features = ["gen-proto"]
+
 [dependencies]
 anyhow = "1.0.100"
 clap = { version = "4.5.54", features = ["derive"] }
@@ -21,11 +33,14 @@ http = "1.4.0"
 http-body = "1.0.1"
 prost = "0.14.3"
 prost-reflect = { version = "0.16.3", features = ["serde"] }
+prost-types = "0.14.3"
 serde_json = "1.0.149"
 thiserror = "2.0.18"
 tokio = { version = "1.49.0", features = ["rt-multi-thread", "macros"] }
 tokio-stream = "0.1.18"
 tonic = "0.14.2"
+tonic-prost = "0.14.2"
+tonic-prost-build = { version = "0.14", optional = true }
 
 [dev-dependencies]
 echo-service = { path = "../echo-service" }

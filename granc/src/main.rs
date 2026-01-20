@@ -9,21 +9,21 @@
 /// 4. Dispatches the request to the appropriate method type (Unary, Streaming, etc.).
 use clap::Parser;
 use client::GrpcClient;
-use descriptor::DescriptorRegistry;
 use futures_util::{Stream, StreamExt};
 use prost_reflect::MethodDescriptor;
+use reflection::{LocalReflectionService, RemoteReflectionService};
 use std::path::PathBuf;
 use std::process;
 
 mod client;
 mod codec;
-mod descriptor;
+mod reflection;
 
 #[derive(Parser)]
 #[command(name = "granc", version, about = "Dynamic gRPC CLI")]
 struct Cli {
     #[arg(long, help = "Path to the descriptor set (.bin)")]
-    proto_set: PathBuf,
+    proto_set: Option<PathBuf>,
 
     #[arg(long, help = "JSON body (Object for Unary, Array for Streaming)")]
     body: String,
@@ -55,8 +55,17 @@ async fn main() {
 async fn run() -> anyhow::Result<()> {
     let args = Cli::parse();
 
-    let registry = DescriptorRegistry::from_file(&args.proto_set)?;
-    let method = registry.fetch_method_descriptor(&args.method)?;
+    let method = match args.proto_set {
+        Some(path) => {
+            let service = LocalReflectionService::from_file(path)?;
+            service.fetch_method_descriptor(&args.method)?
+        }
+        // If no proto-set file is passed, we'll try to reach the server reflection service
+        None => {
+            let mut service = RemoteReflectionService::connect(args.url.clone()).await?;
+            service.fetch_method_descriptor(&args.method).await?
+        }
+    };
 
     let body_json: serde_json::Value =
         serde_json::from_str(&args.body).map_err(|e| anyhow::anyhow!("Invalid JSON: {}", e))?;
