@@ -1,18 +1,23 @@
-//! # gRab CLI Entry Point
-//!
-//! The main module orchestrates the CLI workflow:
-//! 1. Parses command-line arguments.
-//! 2. Loads the Protobuf descriptor registry.
-//! 3. Connects to the gRPC server.
-//! 4. Dispatches the request to the appropriate method type (Unary, Streaming, etc.).
+#![doc = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../README.md"))]
 
+/// # gRab CLI Entry Point
+///
+/// The main module orchestrates the CLI workflow:
+/// 1. Parses command-line arguments.
+/// 2. Loads the Protobuf descriptor registry.
+/// 3. Connects to the gRPC server.
+/// 4. Dispatches the request to the appropriate method type (Unary, Streaming, etc.).
 use clap::Parser;
+use client::GrpcClient;
+use descriptor::DescriptorRegistry;
 use futures_util::{Stream, StreamExt};
-use grab::DescriptorRegistry;
-use grab::GrpcClient;
 use prost_reflect::MethodDescriptor;
 use std::path::PathBuf;
 use std::process;
+
+mod client;
+mod codec;
+mod descriptor;
 
 #[derive(Parser)]
 #[command(name = "grab", version, about = "Dynamic gRPC CLI")]

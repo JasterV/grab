@@ -1,16 +1,17 @@
 [package]
-name = "grab"
-version = "0.1.0"
-edition = "2024"
+authors = ["Victor Martínez Montané <jaster.victor@gmail.com>"]
+categories = ["network-programming", "command-line-utilities"]
 description = "A dynamic gRPC CLI tool written in Rust (gRPC + Crab)"
-
-[lib]
+edition = "2024"
+homepage = "https://github.com/JasterV/grab"
+keywords = ["cli", "grpc", "grpcurl", "curl", "command-line", "utility"]
+license = "MIT OR Apache-2.0"
 name = "grab"
-path = "src/lib.rs"
-
-[[bin]]
-name = "grab"
-path = "src/main.rs"
+publish = true
+readme = "README.md"
+repository = "https://github.com/JasterV/grab"
+rust-version = "1.89"
+version = "0.1.0"
 
 [dependencies]
 anyhow = "1.0.100"

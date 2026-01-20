@@ -32,6 +32,7 @@ pub struct DescriptorRegistry {
 impl DescriptorRegistry {
     /// Decodes a FileDescriptorSet directly from a byte slice.
     /// Useful for tests or embedded descriptors.
+    #[cfg(test)]
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, DescriptorError> {
         let pool = DescriptorPool::decode(bytes)?;
         Ok(Self { pool })

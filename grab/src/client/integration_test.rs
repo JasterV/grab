@@ -1,10 +1,9 @@
+use crate::{client::GrpcClient, descriptor::DescriptorRegistry};
 use echo_service::EchoServiceServer;
 use echo_service::FILE_DESCRIPTOR_SET;
-use grab::{DescriptorRegistry, GrpcClient};
+use echo_service_impl::EchoServiceImpl;
 use tokio_stream::StreamExt;
 use tonic::transport::Server;
-
-use crate::echo_service_impl::EchoServiceImpl;
 
 mod echo_service_impl;
 

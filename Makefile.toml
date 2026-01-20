@@ -10,8 +10,8 @@ description = "Default task: Formats, Lints, and Builds"
 dependencies = ["fmt", "clippy", "build"]
 
 [tasks.ci]
-description = "CI task: Runs checks without modifying files (useful for CI pipelines)"
-dependencies = ["fmt-check", "clippy", "build"]
+description = "CI task: Runs checks without modifying files"
+dependencies = ["fmt-check", "clippy", "test"]
 
 # --- Atomic Tasks ---
 [tasks.run]
@@ -19,12 +19,6 @@ description = "Runs the CLI tool with dynamic arguments"
 command = "cargo"
 # Added '-p grab' to explicitly target the CLI binary in the workspace
 args = ["run", "-p", "grab", "${@}"]
-
-[tasks.build]
-description = "Compiles the entire workspace"
-command = "cargo"
-# Added '--workspace' to build both grab and echo-service
-args = ["build", "--workspace"]
 
 [tasks.fmt]
 description = "Formats all source files"

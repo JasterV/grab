@@ -29,6 +29,9 @@ use tonic::{
     transport::Channel,
 };
 
+#[cfg(test)]
+mod integration_test;
+
 /// Represents failures that occur *before* or during the establishment of the network call,
 /// or protocol violations that prevent a response.
 #[derive(Error, Debug)]
