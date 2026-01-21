@@ -9,9 +9,9 @@ mod echo_service_impl;
 
 #[tokio::test]
 async fn test_unary() {
-    let reflection_service = DescriptorRegistry::from_bytes(FILE_DESCRIPTOR_SET).unwrap();
+    let registry = DescriptorRegistry::from_bytes(FILE_DESCRIPTOR_SET).unwrap();
 
-    let method = reflection_service
+    let method = registry
         .get_method_descriptor("echo.EchoService", "UnaryEcho")
         .unwrap();
 
@@ -32,9 +32,9 @@ async fn test_unary() {
 
 #[tokio::test]
 async fn test_server_streaming() {
-    let reflection_service = DescriptorRegistry::from_bytes(FILE_DESCRIPTOR_SET).unwrap();
+    let registry = DescriptorRegistry::from_bytes(FILE_DESCRIPTOR_SET).unwrap();
 
-    let method = reflection_service
+    let method = registry
         .get_method_descriptor("echo.EchoService", "ServerStreamingEcho")
         .unwrap();
 
@@ -60,8 +60,8 @@ async fn test_server_streaming() {
 
 #[tokio::test]
 async fn test_client_streaming() {
-    let reflection_service = DescriptorRegistry::from_bytes(FILE_DESCRIPTOR_SET).unwrap();
-    let method = reflection_service
+    let registry = DescriptorRegistry::from_bytes(FILE_DESCRIPTOR_SET).unwrap();
+    let method = registry
         .get_method_descriptor("echo.EchoService", "ClientStreamingEcho")
         .unwrap();
 
@@ -88,8 +88,8 @@ async fn test_client_streaming() {
 
 #[tokio::test]
 async fn test_bidirectional_streaming() {
-    let reflection_service = DescriptorRegistry::from_bytes(FILE_DESCRIPTOR_SET).unwrap();
-    let method = reflection_service
+    let registry = DescriptorRegistry::from_bytes(FILE_DESCRIPTOR_SET).unwrap();
+    let method = registry
         .get_method_descriptor("echo.EchoService", "BidirectionalEcho")
         .unwrap();
 

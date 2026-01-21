@@ -26,7 +26,7 @@ async fn test_reflection_client_fetches_unary_echo() {
     let registry = client
         .resolve_service_descriptor_registry("echo.EchoService")
         .await
-        .expect("Failed to fetch service descriptor");
+        .expect("Failed to resolve service descriptor registry");
 
     let method = registry
         .get_method_descriptor("echo.EchoService", "UnaryEcho")
@@ -54,7 +54,7 @@ async fn test_reflection_client_fetches_server_streaming_echo() {
     let registry = client
         .resolve_service_descriptor_registry("echo.EchoService")
         .await
-        .expect("Failed to fetch service descriptor");
+        .expect("Failed to resolve service descriptor registry");
 
     let method = registry
         .get_method_descriptor("echo.EchoService", "ServerStreamingEcho")
@@ -82,7 +82,7 @@ async fn test_reflection_client_fetches_client_streaming_echo() {
     let registry = client
         .resolve_service_descriptor_registry("echo.EchoService")
         .await
-        .expect("Failed to fetch service descriptor");
+        .expect("Failed to resolve service descriptor registry");
 
     let method = registry
         .get_method_descriptor("echo.EchoService", "ClientStreamingEcho")
@@ -110,7 +110,7 @@ async fn test_reflection_client_fetches_bidirectional_echo() {
     let registry = client
         .resolve_service_descriptor_registry("echo.EchoService")
         .await
-        .expect("Failed to fetch service descriptor");
+        .expect("Failed to resolve service descriptor registry");
 
     let method = registry
         .get_method_descriptor("echo.EchoService", "BidirectionalEcho")
