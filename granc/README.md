@@ -154,7 +154,7 @@ granc \
 Contributions are welcome! Please run the Makefile checks before submitting a PR:
 
 ```bash
-cargo make      # Formats, lints, and builds
+cargo make ci # Checks formatting, lints, and runs tests
 ```
 
 ## 📄 License
