@@ -1,5 +1,7 @@
 # Granc 🦀
 
+[![granc on crates.io](https://img.shields.io/crates/v/granc)](https://crates.io/crates/granc)
+
 > ⚠️ **Status: Experimental**
 >
 > This project is currently in a **highly experimental phase**. It is a working prototype intended for testing and development purposes. APIs, command-line arguments, and internal logic are subject to breaking changes. Please use with caution.
@@ -21,6 +23,12 @@ It is heavily inspired by tools like `grpcurl` but built to leverage the safety 
 * **Tonic 0.14**: Built on the latest stable Rust gRPC stack.
 
 ## 📦 Installation
+
+### From Crates.io
+
+```bash
+cargo install granc
+```
 
 ### From Source
 
