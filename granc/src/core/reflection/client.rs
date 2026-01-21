@@ -42,7 +42,9 @@ pub enum ReflectionConnectError {
 
 #[derive(Debug, thiserror::Error)]
 pub enum ReflectionResolveError {
-    #[error("Failed to start reflection stream: {0}")]
+    #[error(
+        "Failed to start a stream request with the reflection server, reflection might not be supported: '{0}'"
+    )]
     ServerStreamInitFailed(#[source] tonic::Status),
 
     #[error("The server stream returned an error status: '{0}'")]

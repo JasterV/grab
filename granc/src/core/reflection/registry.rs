@@ -25,6 +25,7 @@ pub enum DescriptorError {
 
 /// A registry that holds loaded Protobuf definitions and allows looking up
 /// services and methods by name.
+#[derive(Debug)]
 pub struct DescriptorRegistry {
     pool: DescriptorPool,
 }
