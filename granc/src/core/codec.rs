@@ -1,12 +1,19 @@
 //! # JSON <-> Protobuf Codec
 //!
-//! This module implements a custom `tonic::codec::Codec` that allows `tonic` to work
-//! directly with `serde_json::Value`.
+//! This module implements `tonic::codec::Codec` to enable `tonic` to transport `serde_json::Value`
+//! directly, bypassing the need for generated Rust structs.
 //!
-//! It acts as a bridge:
-//! - **Encoding (Request):** Takes a JSON value -> Validates against Schema -> Serializes to Protobuf bytes.
-//! - **Decoding (Response):** Takes Protobuf bytes -> Deserializes using Schema -> Converts to JSON value.
-
+//! ## How it works
+//!
+//! 1. **Encoder (JSON -> Proto)**:
+//!    - Takes a `serde_json::Value`.
+//!    - Uses `prost_reflect::DynamicMessage` to validate the JSON against the input `MessageDescriptor`.
+//!    - Serializes the valid message into the generic gRPC byte buffer.
+//!
+//! 2. **Decoder (Proto -> JSON)**:
+//!    - Reads raw bytes from the wire.
+//!    - Decodes them into a `DynamicMessage` using the output `MessageDescriptor`.
+//!    - Converts the message back into a `serde_json::Value` for the CLI to print.
 use prost::Message;
 use prost_reflect::{DynamicMessage, MessageDescriptor};
 use tonic::{

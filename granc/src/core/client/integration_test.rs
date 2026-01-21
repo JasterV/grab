@@ -1,38 +1,23 @@
-use crate::{client::GrpcClient, descriptor::DescriptorRegistry};
+use crate::core::client::GrpcClient;
+use crate::core::reflection::DescriptorRegistry;
 use echo_service::EchoServiceServer;
 use echo_service::FILE_DESCRIPTOR_SET;
 use echo_service_impl::EchoServiceImpl;
 use tokio_stream::StreamExt;
-use tonic::transport::Server;
 
 mod echo_service_impl;
 
-async fn spawn_server() -> String {
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:0").await.unwrap();
-
-    let addr = listener.local_addr().unwrap();
-
-    tokio::spawn(async move {
-        Server::builder()
-            .add_service(EchoServiceServer::new(EchoServiceImpl))
-            .serve_with_incoming(tokio_stream::wrappers::TcpListenerStream::new(listener))
-            .await
-            .unwrap();
-    });
-
-    format!("http://{}", addr)
-}
-
 #[tokio::test]
 async fn test_unary() {
-    let url = spawn_server().await;
-
     let registry = DescriptorRegistry::from_bytes(FILE_DESCRIPTOR_SET).unwrap();
+
     let method = registry
-        .fetch_method_descriptor("echo.EchoService/UnaryEcho")
+        .get_method_descriptor("echo.EchoService", "UnaryEcho")
         .unwrap();
 
-    let client = GrpcClient::connect(&url).await.unwrap();
+    let client = GrpcClient {
+        service: EchoServiceServer::new(EchoServiceImpl),
+    };
 
     let payload = serde_json::json!({ "message": "hello" });
 
@@ -47,15 +32,15 @@ async fn test_unary() {
 
 #[tokio::test]
 async fn test_server_streaming() {
-    let url = spawn_server().await;
-
     let registry = DescriptorRegistry::from_bytes(FILE_DESCRIPTOR_SET).unwrap();
 
     let method = registry
-        .fetch_method_descriptor("echo.EchoService/ServerStreamingEcho")
+        .get_method_descriptor("echo.EchoService", "ServerStreamingEcho")
         .unwrap();
 
-    let client = GrpcClient::connect(&url).await.unwrap();
+    let client = GrpcClient {
+        service: EchoServiceServer::new(EchoServiceImpl),
+    };
 
     let payload = serde_json::json!({ "message": "stream" });
 
@@ -75,14 +60,14 @@ async fn test_server_streaming() {
 
 #[tokio::test]
 async fn test_client_streaming() {
-    let url = spawn_server().await;
-
     let registry = DescriptorRegistry::from_bytes(FILE_DESCRIPTOR_SET).unwrap();
     let method = registry
-        .fetch_method_descriptor("echo.EchoService/ClientStreamingEcho")
+        .get_method_descriptor("echo.EchoService", "ClientStreamingEcho")
         .unwrap();
 
-    let client = GrpcClient::connect(&url).await.unwrap();
+    let client = GrpcClient {
+        service: EchoServiceServer::new(EchoServiceImpl),
+    };
 
     let payload = serde_json::json!([
         { "message": "A" },
@@ -103,14 +88,14 @@ async fn test_client_streaming() {
 
 #[tokio::test]
 async fn test_bidirectional_streaming() {
-    let url = spawn_server().await;
-
     let registry = DescriptorRegistry::from_bytes(FILE_DESCRIPTOR_SET).unwrap();
     let method = registry
-        .fetch_method_descriptor("echo.EchoService/BidirectionalEcho")
+        .get_method_descriptor("echo.EchoService", "BidirectionalEcho")
         .unwrap();
 
-    let client = GrpcClient::connect(&url).await.unwrap();
+    let client = GrpcClient {
+        service: EchoServiceServer::new(EchoServiceImpl),
+    };
 
     let payload = serde_json::json!([
         { "message": "Ping" },
