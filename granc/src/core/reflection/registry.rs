@@ -15,7 +15,7 @@ use std::path::Path;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
-pub enum ReflectionError {
+pub enum DescriptorError {
     #[error("Failed to read descriptor file: {0}")]
     Io(#[from] std::io::Error),
     #[error("Failed to decode descriptor set: {0}")]
@@ -36,19 +36,19 @@ impl DescriptorRegistry {
     /// Decodes a FileDescriptorSet directly from a byte slice.
     /// Useful for tests or embedded descriptors.
     #[cfg(test)]
-    pub fn from_bytes(bytes: &[u8]) -> Result<Self, ReflectionError> {
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, DescriptorError> {
         let pool = DescriptorPool::decode(bytes)?;
         Ok(Self { pool })
     }
 
     /// Creates a registry from a `FileDescriptorSet` (e.g., from Server Reflection).
-    pub fn from_file_descriptor_set(set: FileDescriptorSet) -> Result<Self, ReflectionError> {
+    pub fn from_file_descriptor_set(set: FileDescriptorSet) -> Result<Self, DescriptorError> {
         let pool = DescriptorPool::from_file_descriptor_set(set)?;
         Ok(Self { pool })
     }
 
     /// Creates a registry by reading a `.bin` or `.pb` file from disk.    
-    pub fn from_file(path: impl AsRef<Path>) -> Result<Self, ReflectionError> {
+    pub fn from_file(path: impl AsRef<Path>) -> Result<Self, DescriptorError> {
         let bytes = std::fs::read(path)?;
         let pool = DescriptorPool::decode(bytes.as_slice())?;
         Ok(Self { pool })
@@ -59,15 +59,15 @@ impl DescriptorRegistry {
         &self,
         service_name: &str,
         method_name: &str,
-    ) -> Result<MethodDescriptor, ReflectionError> {
+    ) -> Result<MethodDescriptor, DescriptorError> {
         let service = self
             .pool
             .get_service_by_name(service_name)
-            .ok_or_else(|| ReflectionError::ServiceNotFound(service_name.to_string()))?;
+            .ok_or_else(|| DescriptorError::ServiceNotFound(service_name.to_string()))?;
 
         service
             .methods()
             .find(|m| m.name() == method_name)
-            .ok_or_else(|| ReflectionError::MethodNotFound(method_name.to_string()))
+            .ok_or_else(|| DescriptorError::MethodNotFound(method_name.to_string()))
     }
 }

@@ -64,7 +64,7 @@ pub enum ReflectionResolveError {
     DecodeError(#[from] prost::DecodeError),
 
     #[error("Failed to build DescriptorRegistry: {0}")]
-    RegistryError(#[from] crate::core::reflection::registry::ReflectionError),
+    RegistryError(#[from] crate::core::reflection::registry::DescriptorError),
 }
 
 /// A generic client for the gRPC Server Reflection Protocol.

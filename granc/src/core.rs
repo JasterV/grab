@@ -7,12 +7,6 @@
 //! 2. **Method Lookup**: It locates the specific `MethodDescriptor` within the given descriptor registry.
 //! 3. **Dispatch**: It initializes the `GrpcClient` and selects the correct handler
 //!    (Unary, ServerStreaming, etc.) based on the grpc method type.
-//!
-//! # Architecture
-//!
-//! - **`Input`**: Request parameters (URL, Body, Headers).
-//! - **`Output`**: A unified enum representing the result, whether it's a single value or a stream.
-//! - **`run()`**: The main entry point called by `main.rs`.
 mod client;
 mod codec;
 mod reflection;
@@ -23,9 +17,18 @@ use prost_reflect::MethodDescriptor;
 use reflection::{DescriptorRegistry, ReflectionClient};
 use std::path::PathBuf;
 
+use crate::core::{
+    client::ClientError,
+    reflection::{
+        client::{ReflectionConnectError, ReflectionResolveError},
+        registry::DescriptorError,
+    },
+};
+
 /// Type alias for the standard boxed error used in generic bounds.
 pub type BoxError = Box<dyn std::error::Error + Send + Sync + 'static>;
 
+/// Request parameters (URL, Body, Headers... etc.).
 pub struct Input {
     pub proto_set: Option<PathBuf>,
     pub body: serde_json::Value,
@@ -35,16 +38,36 @@ pub struct Input {
     pub method: String,
 }
 
+/// A unified enum representing the result, whether it's a single value or a stream
 pub enum Output {
     Unary(Result<serde_json::Value, tonic::Status>),
     Streaming(Result<Vec<Result<serde_json::Value, tonic::Status>>, tonic::Status>),
 }
 
+/// Defines all the possible reasons the execution could fail for.
+#[derive(Debug, thiserror::Error)]
+pub enum CoreError {
+    #[error("Descriptor registry error: {0}")]
+    Registry(#[from] DescriptorError),
+
+    #[error("Reflection connection failed: {0}")]
+    ReflectionConnect(#[from] ReflectionConnectError),
+
+    #[error("Reflection resolution failed: {0}")]
+    ReflectionResolve(#[from] ReflectionResolveError),
+
+    #[error("gRPC client error: {0}")]
+    Client(#[from] ClientError),
+
+    #[error("Invalid input: {0}")]
+    InvalidInput(String),
+}
+
 /// Executes the gRPC CLI logic.
 ///
-/// This function handles the high-level workflow: loading the registry, connecting to the server,
-/// and dispatching the request to the appropriate streaming handler.
-pub async fn run(input: Input) -> anyhow::Result<Output> {
+/// This function handles the high-level workflow: loading the descriptor registry either locally or using server reflection,
+/// connecting to the server, and dispatching the request to the appropriate streaming handler.
+pub async fn run(input: Input) -> Result<Output, CoreError> {
     let registry = match input.proto_set {
         Some(path) => DescriptorRegistry::from_file(path)?,
         // If no proto-set file is passed, we'll try to reach the server reflection service
@@ -79,7 +102,7 @@ async fn handle_unary(
     method: MethodDescriptor,
     body: serde_json::Value,
     headers: Vec<(String, String)>,
-) -> anyhow::Result<Output> {
+) -> Result<Output, CoreError> {
     let result = client.unary(method, body, headers).await?;
     Ok(Output::Unary(result))
 }
@@ -89,7 +112,7 @@ async fn handle_server_stream(
     method: MethodDescriptor,
     body: serde_json::Value,
     headers: Vec<(String, String)>,
-) -> anyhow::Result<Output> {
+) -> Result<Output, CoreError> {
     match client.server_streaming(method, body, headers).await? {
         Ok(stream) => Ok(Output::Streaming(Ok(stream.collect().await))),
         Err(status) => Ok(Output::Streaming(Err(status))),
@@ -101,7 +124,7 @@ async fn handle_client_stream(
     method: MethodDescriptor,
     body: serde_json::Value,
     headers: Vec<(String, String)>,
-) -> anyhow::Result<Output> {
+) -> Result<Output, CoreError> {
     let input_stream = json_array_to_stream(body)?;
 
     let result = client
@@ -116,7 +139,7 @@ async fn handle_bidirectional_stream(
     method: MethodDescriptor,
     body: serde_json::Value,
     headers: Vec<(String, String)>,
-) -> anyhow::Result<Output> {
+) -> Result<Output, CoreError> {
     let input_stream = json_array_to_stream(body)?;
 
     match client
@@ -130,11 +153,11 @@ async fn handle_bidirectional_stream(
 
 fn json_array_to_stream(
     json: serde_json::Value,
-) -> anyhow::Result<impl Stream<Item = serde_json::Value> + Send + 'static> {
+) -> Result<impl Stream<Item = serde_json::Value> + Send + 'static, CoreError> {
     match json {
         serde_json::Value::Array(items) => Ok(tokio_stream::iter(items)),
-        _ => Err(anyhow::anyhow!(
-            "Client streaming requires a JSON Array body"
+        _ => Err(CoreError::InvalidInput(
+            "Client streaming requires a JSON Array body".to_string(),
         )),
     }
 }

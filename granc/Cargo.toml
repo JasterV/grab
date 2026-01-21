@@ -27,7 +27,6 @@ path = "bin/generate_reflection_service.rs"
 required-features = ["gen-proto"]
 
 [dependencies]
-anyhow = "1.0.100"
 clap = { version = "4.5.54", features = ["derive"] }
 futures-util = "0.3.31"
 http = "1.4.0"
