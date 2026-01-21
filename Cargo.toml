@@ -1,3 +1,26 @@
 [workspace]
-members = ["granc", "echo-service"]
+members = ["granc", "granc-core", "echo-service"]
 resolver = "2"
+
+[workspace.package]
+authors = ["Victor Martínez Montané <jaster.victor@gmail.com>"]
+edition = "2024"
+homepage = "https://github.com/JasterV/granc"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/JasterV/granc"
+rust-version = "1.89"
+version = "0.2.3"
+
+[workspace.dependencies]
+serde_json = "1.0.149"
+tokio = { version = "1.49.0" }
+
+# Tonic & prost related deps
+# They must be updated all at once
+prost = "0.14"
+prost-reflect = "0.16.3"
+prost-types = "0.14"
+tonic = "0.14"
+tonic-prost = "0.14"
+tonic-prost-build = "0.14"
+tonic-reflection = "0.14"

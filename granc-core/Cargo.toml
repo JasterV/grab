@@ -1,0 +1,46 @@
+[package]
+authors = { workspace = true }
+categories = ["network-programming"]
+description = "Cranc's gRPC CLI core library"
+edition = { workspace = true }
+homepage = { workspace = true }
+keywords = ["grpc", "network-programming", "grpc-reflection"]
+license = { workspace = true }
+name = "granc_core"
+publish = true
+readme = "./README.md"
+repository = { workspace = true }
+rust-version = { workspace = true }
+version = { workspace = true }
+
+[features]
+gen-proto = ["dep:tonic-prost-build"]
+
+[lib]
+name = "granc_core"
+path = "src/lib.rs"
+
+[[bin]]
+name = "generate-reflection-service"
+path = "bin/generate_reflection_service.rs"
+required-features = ["gen-proto"]
+
+[dependencies]
+futures-util = "0.3.31"
+http = "1.4.0"
+http-body = "1.0.1"
+prost = { workspace = true }
+prost-reflect = { workspace = true, features = ["serde"] }
+prost-types = { workspace = true }
+serde_json = { workspace = true }
+thiserror = "2.0.18"
+tokio = { workspace = true, features = ["sync"] }
+tokio-stream = "0.1.18"
+tonic = { workspace = true }
+tonic-prost = { workspace = true }
+tonic-prost-build = { workspace = true, optional = true }
+
+[dev-dependencies]
+echo-service = { path = "../echo-service" }
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+tonic-reflection = { workspace = true }

@@ -4,18 +4,26 @@ mod cli;
 
 use clap::Parser;
 use cli::Cli;
-use granc::Output;
+use granc_core::{Granc, GrpcRequest, GrpcResponse};
 use std::process;
 
 #[tokio::main]
 async fn main() {
     let args = Cli::parse();
 
-    match granc::run(granc::Input::from(args)).await {
-        Ok(Output::Unary(Ok(value))) => print_json(&value),
-        Ok(Output::Unary(Err(status))) => print_status(&status),
-        Ok(Output::Streaming(Ok(values))) => print_stream(&values),
-        Ok(Output::Streaming(Err(status))) => print_status(&status),
+    let client = match Granc::connect(&args.url).await {
+        Ok(client) => client,
+        Err(err) => {
+            eprintln!("Error: {err}");
+            process::exit(1);
+        }
+    };
+
+    match client.call(GrpcRequest::from(args)).await {
+        Ok(GrpcResponse::Unary(Ok(value))) => print_json(&value),
+        Ok(GrpcResponse::Unary(Err(status))) => print_status(&status),
+        Ok(GrpcResponse::Streaming(Ok(values))) => print_stream(&values),
+        Ok(GrpcResponse::Streaming(Err(status))) => print_status(&status),
         Err(err) => {
             eprintln!("Error: {err}");
             process::exit(1);

@@ -7,13 +7,13 @@
 //! 2. **Conversion**: transforming the raw arguments into the `crate::core::Input` struct used by the core logic.
 //!
 use clap::Parser;
-use std::path::PathBuf;
+use granc_core::GrpcRequest;
 
 #[derive(Parser)]
 #[command(name = "granc", version, about = "Dynamic gRPC CLI")]
 pub struct Cli {
-    #[arg(long, help = "Path to the descriptor set (.bin)")]
-    pub proto_set: Option<PathBuf>,
+    #[arg(long, help = "Path to the descriptor set (.bin)", value_parser = parse_file_descriptor_set)]
+    pub file_descriptor_set: Option<Vec<u8>>,
 
     #[arg(long, help = "JSON body (Object for Unary, Array for Streaming)", value_parser = parse_body)]
     pub body: serde_json::Value,
@@ -28,19 +28,26 @@ pub struct Cli {
     pub endpoint: (String, String),
 }
 
-impl From<Cli> for granc::CallInput {
+impl From<Cli> for GrpcRequest {
     /// Converts the raw CLI arguments into the internal `Input` representation.
     fn from(value: Cli) -> Self {
         let (service, method) = value.endpoint;
 
         Self {
-            proto_set: value.proto_set,
+            file_descriptor_set: value.file_descriptor_set,
             body: value.body,
             headers: value.headers,
             service,
             method,
         }
     }
+}
+
+fn parse_file_descriptor_set(path: &str) -> Result<Vec<u8>, String> {
+    let path = path.trim();
+
+    std::fs::read(path)
+        .map_err(|err| format!("Failed to read file descriptor set at path '{path}': '{err}'"))
 }
 
 fn parse_endpoint(value: &str) -> Result<(String, String), String> {

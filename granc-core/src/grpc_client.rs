@@ -13,9 +13,8 @@
 //!   raw `serde_json::Value` and `prost_reflect::MethodDescriptor`.
 //! * **Metadata Handling**: Converts generic string headers into `tonic::metadata` types.
 //!
-use crate::core::BoxError;
-
 use super::codec::JsonCodec;
+use crate::BoxError;
 use futures_util::Stream;
 use http_body::Body as HttpBody;
 use prost_reflect::MethodDescriptor;
@@ -28,14 +27,11 @@ use tonic::{
         MetadataKey, MetadataValue,
         errors::{InvalidMetadataKey, InvalidMetadataValue},
     },
-    transport::{Channel, Endpoint},
+    transport::Channel,
 };
 
-#[cfg(test)]
-mod integration_test;
-
 #[derive(Error, Debug)]
-pub enum ClientError {
+pub enum GrpcClientError {
     #[error("Internal error, the client was not ready: '{0}'")]
     ClientNotReady(#[source] BoxError),
     #[error("Invalid metadata (header) key '{key}': '{source}'")]
@@ -50,13 +46,6 @@ pub enum ClientError {
     },
 }
 
-#[derive(Debug, thiserror::Error)]
-pub enum ClientConnectError {
-    #[error("Invalid URL '{0}': {1}")]
-    InvalidUrl(String, #[source] tonic::transport::Error),
-    #[error("Failed to connect to '{0}': {1}")]
-    ConnectionFailed(String, #[source] tonic::transport::Error),
-}
 /// A generic gRPC client that uses dynamic dispatch via `prost-reflect`.
 ///
 /// It can wrap any inner service `T` that implements `GrpcService<tonic::body::Body>`,
@@ -72,6 +61,10 @@ where
     S::ResponseBody: HttpBody + Send + 'static,
     <S::ResponseBody as HttpBody>::Error: Into<BoxError>,
 {
+    pub fn new(service: S) -> Self {
+        Self { service }
+    }
+
     /// Performs a Unary gRPC call (Single Request -> Single Response).
     ///
     /// # Returns
@@ -83,12 +76,12 @@ where
         method: MethodDescriptor,
         payload: serde_json::Value,
         headers: Vec<(String, String)>,
-    ) -> Result<Result<serde_json::Value, tonic::Status>, ClientError> {
+    ) -> Result<Result<serde_json::Value, tonic::Status>, GrpcClientError> {
         let mut client = Grpc::new(self.service.clone());
         client
             .ready()
             .await
-            .map_err(|e| ClientError::ClientNotReady(e.into()))?;
+            .map_err(|e| GrpcClientError::ClientNotReady(e.into()))?;
 
         let codec = JsonCodec::new(method.input(), method.output());
         let path = http_path(&method);
@@ -114,13 +107,13 @@ where
         headers: Vec<(String, String)>,
     ) -> Result<
         Result<impl Stream<Item = Result<serde_json::Value, tonic::Status>>, tonic::Status>,
-        ClientError,
+        GrpcClientError,
     > {
         let mut client = Grpc::new(self.service.clone());
         client
             .ready()
             .await
-            .map_err(|e| ClientError::ClientNotReady(e.into()))?;
+            .map_err(|e| GrpcClientError::ClientNotReady(e.into()))?;
 
         let codec = JsonCodec::new(method.input(), method.output());
         let path = http_path(&method);
@@ -144,12 +137,12 @@ where
         method: MethodDescriptor,
         payload_stream: impl Stream<Item = serde_json::Value> + Send + 'static,
         headers: Vec<(String, String)>,
-    ) -> Result<Result<serde_json::Value, tonic::Status>, ClientError> {
+    ) -> Result<Result<serde_json::Value, tonic::Status>, GrpcClientError> {
         let mut client = Grpc::new(self.service.clone());
         client
             .ready()
             .await
-            .map_err(|e| ClientError::ClientNotReady(e.into()))?;
+            .map_err(|e| GrpcClientError::ClientNotReady(e.into()))?;
 
         let codec = JsonCodec::new(method.input(), method.output());
         let path = http_path(&method);
@@ -175,13 +168,13 @@ where
         headers: Vec<(String, String)>,
     ) -> Result<
         Result<impl Stream<Item = Result<serde_json::Value, tonic::Status>>, tonic::Status>,
-        ClientError,
+        GrpcClientError,
     > {
         let mut client = Grpc::new(self.service.clone());
         client
             .ready()
             .await
-            .map_err(|e| ClientError::ClientNotReady(e.into()))?;
+            .map_err(|e| GrpcClientError::ClientNotReady(e.into()))?;
 
         let codec = JsonCodec::new(method.input(), method.output());
         let path = http_path(&method);
@@ -199,15 +192,19 @@ fn http_path(method: &MethodDescriptor) -> http::uri::PathAndQuery {
     http::uri::PathAndQuery::from_str(&path).expect("valid gRPC path")
 }
 
-fn build_request<T>(payload: T, headers: Vec<(String, String)>) -> Result<Request<T>, ClientError> {
+fn build_request<T>(
+    payload: T,
+    headers: Vec<(String, String)>,
+) -> Result<Request<T>, GrpcClientError> {
     let mut request = Request::new(payload);
     for (k, v) in headers {
-        let key = MetadataKey::from_str(&k).map_err(|source| ClientError::InvalidMetadataKey {
-            key: k.clone(),
-            source,
-        })?;
+        let key =
+            MetadataKey::from_str(&k).map_err(|source| GrpcClientError::InvalidMetadataKey {
+                key: k.clone(),
+                source,
+            })?;
         let val = MetadataValue::from_str(&v)
-            .map_err(|source| ClientError::InvalidMetadataValue { key: k, source })?;
+            .map_err(|source| GrpcClientError::InvalidMetadataValue { key: k, source })?;
         request.metadata_mut().insert(key, val);
     }
     Ok(request)

@@ -15,8 +15,7 @@ args = ["run", "-p", "granc", "${@}"]
 [tasks.test]
 description = "Runs tests for the granc crate only"
 command = "cargo"
-# Added '-p granc' to strictly run integration/unit tests for the CLI
-args = ["nextest", "run", "--no-fail-fast", "-p", "granc"]
+args = ["nextest", "run", "--no-fail-fast", "--workspace"]
 
 [tasks.fmt]
 description = "Formats all source files"
@@ -42,14 +41,13 @@ args = [
   "warnings",
 ]
 
-
-[tasks.generate_reflection_service]
+[tasks.generate-reflection-service]
 description = "Runs a binary that generates a reflection service client from the reflection proto definitions"
 command = "cargo"
 args = [
   "run",
   "--bin",
-  "generate_reflection_service",
+  "generate-reflection-service",
   "--features",
   "gen-proto",
 ]

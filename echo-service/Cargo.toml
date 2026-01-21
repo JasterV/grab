@@ -1,6 +1,6 @@
 [package]
 name = "echo-service"
-edition = "2024"
+edition = { workspace = true }
 publish = false
 
 [dependencies]

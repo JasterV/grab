@@ -330,6 +330,16 @@ name = "granc"
 version = "0.2.3"
 dependencies = [
  "clap",
+ "granc_core",
+ "serde_json",
+ "tokio",
+ "tonic",
+]
+
+[[package]]
+name = "granc_core"
+version = "0.2.3"
+dependencies = [
  "echo-service",
  "futures-util",
  "http",
@@ -1283,6 +1293,6 @@ checksum = "d7249219f66ced02969388cf2bb044a09756a083d0fab1e566056b04d9fbcaa5"
 
 [[package]]
 name = "zmij"
-version = "1.0.15"
+version = "1.0.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "94f63c051f4fe3c1509da62131a678643c5b6fbdc9273b2b79d4378ebda003d2"
+checksum = "dfcd145825aace48cff44a8844de64bf75feec3080e0aa5cdbde72961ae51a65"

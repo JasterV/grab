@@ -18,26 +18,18 @@ use super::generated::reflection_v1::{
     server_reflection_client::ServerReflectionClient, server_reflection_request::MessageRequest,
     server_reflection_response::MessageResponse,
 };
-use crate::core::BoxError;
+use crate::BoxError;
 use http_body::Body as HttpBody;
 use prost::Message;
 use prost_types::{FileDescriptorProto, FileDescriptorSet};
 use std::collections::{HashMap, HashSet};
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
-use tonic::transport::{Channel, Endpoint};
+use tonic::transport::Channel;
 use tonic::{Streaming, client::GrpcService};
 
 #[cfg(test)]
 mod integration_test;
-
-#[derive(Debug, thiserror::Error)]
-pub enum ReflectionConnectError {
-    #[error("Invalid URL '{0}': {1}")]
-    InvalidUrl(String, #[source] tonic::transport::Error),
-    #[error("Failed to connect to '{0}': {1}")]
-    ConnectionFailed(String, #[source] tonic::transport::Error),
-}
 
 #[derive(Debug, thiserror::Error)]
 pub enum ReflectionResolveError {
@@ -65,10 +57,14 @@ pub enum ReflectionResolveError {
     DecodeError(#[from] prost::DecodeError),
 }
 
+// The host defined in the reflection requests doesn't seem to be a mandatory field
+// and there is no documentation about what it is about.
+// So we won't enforce it from the user.
+const EMPTY_HOST: &str = "";
+
 /// A generic client for the gRPC Server Reflection Protocol.
 pub struct ReflectionClient<T = Channel> {
     client: ServerReflectionClient<T>,
-    base_url: String,
 }
 
 impl<S> ReflectionClient<S>
@@ -78,9 +74,9 @@ where
     S::ResponseBody: HttpBody<Data = tonic::codegen::Bytes> + Send + 'static,
     <S::ResponseBody as HttpBody>::Error: Into<BoxError> + Send,
 {
-    pub fn new(channel: S, base_url: String) -> Self {
+    pub fn new(channel: S) -> Self {
         let client = ServerReflectionClient::new(channel);
-        Self { client, base_url }
+        Self { client }
     }
 
     /// Asks the reflection service for the file containing the requested symbol (e.g., `my.package.MyService`).
@@ -110,7 +106,7 @@ where
 
         // Send Initial Request
         let req = ServerReflectionRequest {
-            host: self.base_url.clone(),
+            host: EMPTY_HOST.to_string(),
             message_request: Some(MessageRequest::FileContainingSymbol(
                 service_name.to_string(),
             )),
@@ -121,7 +117,7 @@ where
             .map_err(|_| ReflectionResolveError::SendFailed)?;
 
         // Fetch all transitive dependencies
-        let file_map = self.collect_descriptors(&mut response_stream, tx).await?;
+        let file_map = collect_descriptors(&mut response_stream, tx).await?;
 
         // Build Registry directly
         let fd_set = FileDescriptorSet {
@@ -130,110 +126,104 @@ where
 
         Ok(fd_set)
     }
+}
 
-    async fn collect_descriptors(
-        &self,
-        response_stream: &mut Streaming<ServerReflectionResponse>,
-        request_channel: mpsc::Sender<ServerReflectionRequest>,
-    ) -> Result<HashMap<String, FileDescriptorProto>, ReflectionResolveError> {
-        let mut inflight = 1;
-        let mut collected_files = HashMap::new();
-        let mut requested = HashSet::new();
+async fn collect_descriptors(
+    response_stream: &mut Streaming<ServerReflectionResponse>,
+    request_channel: mpsc::Sender<ServerReflectionRequest>,
+) -> Result<HashMap<String, FileDescriptorProto>, ReflectionResolveError> {
+    let mut inflight = 1;
+    let mut collected_files = HashMap::new();
+    let mut requested = HashSet::new();
 
-        while inflight > 0 {
-            let response = response_stream
-                .message()
+    while inflight > 0 {
+        let response = response_stream
+            .message()
+            .await
+            .map_err(ReflectionResolveError::ServerStreamFailure)?
+            .ok_or(ReflectionResolveError::StreamClosed)?;
+
+        inflight -= 1;
+
+        match response.message_response {
+            Some(MessageResponse::FileDescriptorResponse(res)) => {
+                let sent_count = process_descriptor_batch(
+                    res.file_descriptor_proto,
+                    &mut collected_files,
+                    &mut requested,
+                    &request_channel,
+                )
+                .await?;
+
+                inflight += sent_count;
+            }
+            Some(MessageResponse::ErrorResponse(e)) => {
+                return Err(ReflectionResolveError::ServerError {
+                    message: e.error_message,
+                    code: e.error_code,
+                });
+            }
+            Some(other) => {
+                return Err(ReflectionResolveError::UnexpectedResponseType(format!(
+                    "{:?}",
+                    other
+                )));
+            }
+            None => {
+                return Err(ReflectionResolveError::UnexpectedResponseType(
+                    "Empty Message".into(),
+                ));
+            }
+        }
+    }
+
+    Ok(collected_files)
+}
+
+async fn process_descriptor_batch(
+    raw_protos: Vec<Vec<u8>>,
+    collected_files: &mut HashMap<String, FileDescriptorProto>,
+    requested: &mut HashSet<String>,
+    tx: &mpsc::Sender<ServerReflectionRequest>,
+) -> Result<usize, ReflectionResolveError> {
+    let mut sent_count = 0;
+
+    for raw in raw_protos {
+        let fd = FileDescriptorProto::decode(raw.as_ref())?;
+
+        if let Some(name) = &fd.name
+            && !collected_files.contains_key(name)
+        {
+            sent_count += queue_dependencies(&fd, collected_files, requested, tx).await?;
+
+            collected_files.insert(name.clone(), fd);
+        }
+    }
+
+    Ok(sent_count)
+}
+
+async fn queue_dependencies(
+    fd: &FileDescriptorProto,
+    collected_files: &HashMap<String, FileDescriptorProto>,
+    requested: &mut HashSet<String>,
+    tx: &mpsc::Sender<ServerReflectionRequest>,
+) -> Result<usize, ReflectionResolveError> {
+    let mut count = 0;
+
+    for dep in &fd.dependency {
+        if !collected_files.contains_key(dep) && requested.insert(dep.clone()) {
+            let req = ServerReflectionRequest {
+                host: EMPTY_HOST.to_string(),
+                message_request: Some(MessageRequest::FileByFilename(dep.clone())),
+            };
+
+            tx.send(req)
                 .await
-                .map_err(ReflectionResolveError::ServerStreamFailure)?
-                .ok_or(ReflectionResolveError::StreamClosed)?;
-
-            inflight -= 1;
-
-            match response.message_response {
-                Some(MessageResponse::FileDescriptorResponse(res)) => {
-                    let sent_count = self
-                        .process_descriptor_batch(
-                            res.file_descriptor_proto,
-                            &mut collected_files,
-                            &mut requested,
-                            &request_channel,
-                        )
-                        .await?;
-
-                    inflight += sent_count;
-                }
-                Some(MessageResponse::ErrorResponse(e)) => {
-                    return Err(ReflectionResolveError::ServerError {
-                        message: e.error_message,
-                        code: e.error_code,
-                    });
-                }
-                Some(other) => {
-                    return Err(ReflectionResolveError::UnexpectedResponseType(format!(
-                        "{:?}",
-                        other
-                    )));
-                }
-                None => {
-                    return Err(ReflectionResolveError::UnexpectedResponseType(
-                        "Empty Message".into(),
-                    ));
-                }
-            }
+                .map_err(|_| ReflectionResolveError::SendFailed)?;
+            count += 1;
         }
-
-        Ok(collected_files)
     }
 
-    async fn process_descriptor_batch(
-        &self,
-        raw_protos: Vec<Vec<u8>>,
-        collected_files: &mut HashMap<String, FileDescriptorProto>,
-        requested: &mut HashSet<String>,
-        tx: &mpsc::Sender<ServerReflectionRequest>,
-    ) -> Result<usize, ReflectionResolveError> {
-        let mut sent_count = 0;
-
-        for raw in raw_protos {
-            let fd = FileDescriptorProto::decode(raw.as_ref())?;
-
-            if let Some(name) = &fd.name
-                && !collected_files.contains_key(name)
-            {
-                sent_count += self
-                    .queue_dependencies(&fd, collected_files, requested, tx)
-                    .await?;
-
-                collected_files.insert(name.clone(), fd);
-            }
-        }
-
-        Ok(sent_count)
-    }
-
-    async fn queue_dependencies(
-        &self,
-        fd: &FileDescriptorProto,
-        collected_files: &HashMap<String, FileDescriptorProto>,
-        requested: &mut HashSet<String>,
-        tx: &mpsc::Sender<ServerReflectionRequest>,
-    ) -> Result<usize, ReflectionResolveError> {
-        let mut count = 0;
-
-        for dep in &fd.dependency {
-            if !collected_files.contains_key(dep) && requested.insert(dep.clone()) {
-                let req = ServerReflectionRequest {
-                    host: self.base_url.clone(),
-                    message_request: Some(MessageRequest::FileByFilename(dep.clone())),
-                };
-
-                tx.send(req)
-                    .await
-                    .map_err(|_| ReflectionResolveError::SendFailed)?;
-                count += 1;
-            }
-        }
-
-        Ok(count)
-    }
+    Ok(count)
 }
