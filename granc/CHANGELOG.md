@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## `granc` - [0.2.0](https://github.com/JasterV/granc/compare/granc-v0.1.0...granc-v0.2.0) - 2026-01-21
+
+### Other
+- implement automatic reflection ([#9](https://github.com/JasterV/granc/pull/9))
+- update README
+
 ## `granc` - 0.1.0 2026-01-20
 
 ### Added
