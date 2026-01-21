@@ -72,10 +72,9 @@ pub async fn run(input: Input) -> Result<Output, CoreError> {
         Some(path) => DescriptorRegistry::from_file(path)?,
         // If no proto-set file is passed, we'll try to reach the server reflection service
         None => {
-            let mut service = ReflectionClient::connect(input.url.clone()).await?;
-            service
-                .resolve_service_descriptor_registry(&input.service)
-                .await?
+            let mut client = ReflectionClient::connect(input.url.clone()).await?;
+            let fd_set = client.file_descriptor_set_by_symbol(&input.service).await?;
+            DescriptorRegistry::from_file_descriptor_set(fd_set)?
         }
     };
 

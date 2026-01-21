@@ -1,4 +1,5 @@
 use crate::core::reflection::{
+    DescriptorRegistry,
     client::{
         ReflectionClient, ReflectionResolveError, integration_test::dummy_service::DummyEchoService,
     },
@@ -28,10 +29,13 @@ fn setup_reflection_client()
 async fn test_reflection_client_fetches_unary_echo() {
     let mut client = setup_reflection_client();
 
-    let registry = client
-        .resolve_service_descriptor_registry("echo.EchoService")
+    let fd_set = client
+        .file_descriptor_set_by_symbol("echo.EchoService")
         .await
-        .expect("Failed to resolve service descriptor registry");
+        .expect("Failed to fetch file descriptor set by symbol");
+
+    let registry = DescriptorRegistry::from_file_descriptor_set(fd_set)
+        .expect("Failed to build descriptor registry");
 
     let method = registry
         .get_method_descriptor("echo.EchoService", "UnaryEcho")
@@ -56,10 +60,13 @@ async fn test_reflection_client_fetches_unary_echo() {
 async fn test_reflection_client_fetches_server_streaming_echo() {
     let mut client = setup_reflection_client();
 
-    let registry = client
-        .resolve_service_descriptor_registry("echo.EchoService")
+    let fd_set = client
+        .file_descriptor_set_by_symbol("echo.EchoService")
         .await
-        .expect("Failed to resolve service descriptor registry");
+        .expect("Failed to fetch file descriptor set by symbol");
+
+    let registry = DescriptorRegistry::from_file_descriptor_set(fd_set)
+        .expect("Failed to build descriptor registry");
 
     let method = registry
         .get_method_descriptor("echo.EchoService", "ServerStreamingEcho")
@@ -84,10 +91,13 @@ async fn test_reflection_client_fetches_server_streaming_echo() {
 async fn test_reflection_client_fetches_client_streaming_echo() {
     let mut client = setup_reflection_client();
 
-    let registry = client
-        .resolve_service_descriptor_registry("echo.EchoService")
+    let fd_set = client
+        .file_descriptor_set_by_symbol("echo.EchoService")
         .await
-        .expect("Failed to resolve service descriptor registry");
+        .expect("Failed to fetch file descriptor set by symbol");
+
+    let registry = DescriptorRegistry::from_file_descriptor_set(fd_set)
+        .expect("Failed to build descriptor registry");
 
     let method = registry
         .get_method_descriptor("echo.EchoService", "ClientStreamingEcho")
@@ -112,10 +122,13 @@ async fn test_reflection_client_fetches_client_streaming_echo() {
 async fn test_reflection_client_fetches_bidirectional_echo() {
     let mut client = setup_reflection_client();
 
-    let registry = client
-        .resolve_service_descriptor_registry("echo.EchoService")
+    let fd_set = client
+        .file_descriptor_set_by_symbol("echo.EchoService")
         .await
-        .expect("Failed to resolve service descriptor registry");
+        .expect("Failed to fetch file descriptor set by symbol");
+
+    let registry = DescriptorRegistry::from_file_descriptor_set(fd_set)
+        .expect("Failed to build descriptor registry");
 
     let method = registry
         .get_method_descriptor("echo.EchoService", "BidirectionalEcho")
@@ -139,7 +152,7 @@ async fn test_reflection_service_not_found_error() {
     let mut client = setup_reflection_client();
 
     let result: Result<_, _> = client
-        .resolve_service_descriptor_registry("non.existent.Service")
+        .file_descriptor_set_by_symbol("non.existent.Service")
         .await;
 
     assert!(matches!(
@@ -161,7 +174,7 @@ async fn test_server_does_not_support_reflection() {
 
     // The client will attempt to call `/grpc.reflection.v1.ServerReflection/ServerReflectionInfo` on this service.
     let result = client
-        .resolve_service_descriptor_registry("echo.EchoService")
+        .file_descriptor_set_by_symbol("echo.EchoService")
         .await;
 
     match result {

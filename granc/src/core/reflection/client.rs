@@ -19,7 +19,6 @@ use super::generated::reflection_v1::{
     server_reflection_response::MessageResponse,
 };
 use crate::core::BoxError;
-use crate::core::reflection::DescriptorRegistry;
 use http_body::Body as HttpBody;
 use prost::Message;
 use prost_types::{FileDescriptorProto, FileDescriptorSet};
@@ -64,9 +63,6 @@ pub enum ReflectionResolveError {
 
     #[error("Failed to decode FileDescriptorProto: {0}")]
     DecodeError(#[from] prost::DecodeError),
-
-    #[error("Failed to build DescriptorRegistry: {0}")]
-    RegistryError(#[from] crate::core::reflection::registry::DescriptorError),
 }
 
 /// A generic client for the gRPC Server Reflection Protocol.
@@ -99,10 +95,21 @@ where
     T::ResponseBody: HttpBody<Data = tonic::codegen::Bytes> + Send + 'static,
     <T::ResponseBody as HttpBody>::Error: Into<BoxError> + Send,
 {
-    pub async fn resolve_service_descriptor_registry(
+    /// Asks the reflection service for the file containing the requested symbol (e.g., `my.package.MyService`).
+    ///
+    /// **Recursive Resolution**:
+    ///    - The server returns a `FileDescriptorProto`.
+    ///    - The client inspects the imports (dependencies) of that file.
+    ///    - It recursively requests any missing dependencies until the full `FileDescriptorSet` is built.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(fd_set)` - Successful reflection requests execution.
+    /// * `Err(ReflectionResolveError)` - Failed to request file descriptors to the reflection service.
+    pub async fn file_descriptor_set_by_symbol(
         &mut self,
         service_name: &str,
-    ) -> Result<DescriptorRegistry, ReflectionResolveError> {
+    ) -> Result<FileDescriptorSet, ReflectionResolveError> {
         // Initialize Stream
         let (tx, rx) = mpsc::channel(100);
 
@@ -133,7 +140,7 @@ where
             file: file_map.into_values().collect(),
         };
 
-        Ok(DescriptorRegistry::from_file_descriptor_set(fd_set)?)
+        Ok(fd_set)
     }
 
     async fn collect_descriptors(
