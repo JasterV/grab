@@ -1,3 +1,11 @@
+//! # Command Line Interface Definition
+//!
+//! This module utilizes `clap` to define the command-line arguments and flags
+//! accepted by the application. It acts as the user-facing entry point, responsible for:
+//!
+//! 1. **Parsing**: extracting and ensuring each argument and flag can be parsed to the target Rust types.
+//! 2. **Conversion**: transforming the raw arguments into the `crate::core::Input` struct used by the core logic.
+//!
 use clap::Parser;
 use std::path::PathBuf;
 
@@ -21,6 +29,7 @@ pub struct Cli {
 }
 
 impl From<Cli> for crate::core::Input {
+    /// Converts the raw CLI arguments into the internal `Input` representation.
     fn from(value: Cli) -> Self {
         let (service, method) = value.endpoint;
 

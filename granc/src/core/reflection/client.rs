@@ -1,3 +1,18 @@
+//! # gRPC Server Reflection Client
+//!
+//! This module implements a client for `grpc.reflection.v1`. It enables `granc` to function
+//! without a local descriptor file by asking the server for its own schema.
+//!
+//! ## The Resolution Process
+//!
+//! 1. **Connect**: Opens a stream to the reflection endpoint.
+//! 2. **Request Symbol**: Asks for the file containing the requested service (e.g., `my.package.MyService`).
+//! 3. **Recursive Resolution**:
+//!    - The server returns a `FileDescriptorProto`.
+//!    - The client inspects the imports (dependencies) of that file.
+//!    - It recursively requests any missing dependencies until the full schema tree is built.
+//! 4. **Build Registry**: Returns a fully populated `DescriptorRegistry`.
+//!
 use super::generated::reflection_v1::{
     ServerReflectionRequest, ServerReflectionResponse,
     server_reflection_client::ServerReflectionClient, server_reflection_request::MessageRequest,
@@ -34,6 +49,8 @@ impl ReflectionClient {
         })
     }
 
+    /// Queries the server for a specific service and all its transitive dependencies.
+    /// Returns a fully-populated `DescriptorRegistry`.
     pub async fn get_service_descriptor(
         &mut self,
         service_name: &str,
@@ -72,60 +89,58 @@ impl ReflectionClient {
 
     async fn collect_descriptors(
         &self,
-        stream: &mut Streaming<ServerReflectionResponse>,
-        tx: mpsc::Sender<ServerReflectionRequest>,
+        response_stream: &mut Streaming<ServerReflectionResponse>,
+        request_channel: mpsc::Sender<ServerReflectionRequest>,
     ) -> anyhow::Result<HashMap<String, FileDescriptorProto>> {
         let mut inflight = 1;
-        let mut file_map = HashMap::new();
+        let mut collected_files = HashMap::new();
         let mut requested = HashSet::new();
 
         while inflight > 0 {
-            let response = stream
+            let response = response_stream
                 .message()
                 .await?
                 .ok_or_else(|| anyhow::anyhow!("Stream closed unexpectedly"))?;
 
             inflight -= 1;
 
-            let sent_count = self
-                .handle_response(response, &mut file_map, &mut requested, &tx)
-                .await?;
+            match response.message_response {
+                Some(MessageResponse::FileDescriptorResponse(res)) => {
+                    let sent_count = self
+                        .process_descriptor_batch(
+                            res.file_descriptor_proto,
+                            &mut collected_files,
+                            &mut requested,
+                            &request_channel,
+                        )
+                        .await?;
 
-            inflight += sent_count;
-        }
-
-        Ok(file_map)
-    }
-
-    async fn handle_response(
-        &self,
-        response: ServerReflectionResponse,
-        file_map: &mut HashMap<String, FileDescriptorProto>,
-        requested: &mut HashSet<String>,
-        tx: &mpsc::Sender<ServerReflectionRequest>,
-    ) -> anyhow::Result<usize> {
-        match response.message_response {
-            Some(MessageResponse::FileDescriptorResponse(res)) => {
-                self.process_descriptor_batch(res.file_descriptor_proto, file_map, requested, tx)
-                    .await
+                    inflight += sent_count;
+                }
+                Some(MessageResponse::ErrorResponse(e)) => {
+                    return Err(anyhow::anyhow!(
+                        "Server returned reflection error: {} (code {})",
+                        e.error_message,
+                        e.error_code
+                    ));
+                }
+                Some(other) => {
+                    return Err(anyhow::anyhow!(
+                        "Received unexpected response type: {:?}",
+                        other
+                    ));
+                }
+                None => return Err(anyhow::anyhow!("Reflection response contained no message")),
             }
-            Some(MessageResponse::ErrorResponse(e)) => Err(anyhow::anyhow!(
-                "Server returned reflection error: {} (code {})",
-                e.error_message,
-                e.error_code
-            )),
-            Some(other) => Err(anyhow::anyhow!(
-                "Received unexpected response type: {:?}",
-                other
-            )),
-            None => Err(anyhow::anyhow!("Reflection response contained no message")),
         }
+
+        Ok(collected_files)
     }
 
     async fn process_descriptor_batch(
         &self,
         raw_protos: Vec<Vec<u8>>,
-        file_map: &mut HashMap<String, FileDescriptorProto>,
+        collected_files: &mut HashMap<String, FileDescriptorProto>,
         requested: &mut HashSet<String>,
         tx: &mpsc::Sender<ServerReflectionRequest>,
     ) -> anyhow::Result<usize> {
@@ -136,12 +151,13 @@ impl ReflectionClient {
                 .context("Failed to decode FileDescriptorProto")?;
 
             if let Some(name) = &fd.name
-                && !file_map.contains_key(name)
+                && !collected_files.contains_key(name)
             {
                 sent_count += self
-                    .queue_dependencies(&fd, file_map, requested, tx)
+                    .queue_dependencies(&fd, collected_files, requested, tx)
                     .await?;
-                file_map.insert(name.clone(), fd);
+
+                collected_files.insert(name.clone(), fd);
             }
         }
 
@@ -151,13 +167,14 @@ impl ReflectionClient {
     async fn queue_dependencies(
         &self,
         fd: &FileDescriptorProto,
-        file_map: &HashMap<String, FileDescriptorProto>,
+        collected_files: &HashMap<String, FileDescriptorProto>,
         requested: &mut HashSet<String>,
         tx: &mpsc::Sender<ServerReflectionRequest>,
     ) -> anyhow::Result<usize> {
         let mut count = 0;
+
         for dep in &fd.dependency {
-            if !file_map.contains_key(dep) && requested.insert(dep.clone()) {
+            if !collected_files.contains_key(dep) && requested.insert(dep.clone()) {
                 let req = ServerReflectionRequest {
                     host: self.base_url.clone(),
                     message_request: Some(MessageRequest::FileByFilename(dep.clone())),
@@ -167,6 +184,7 @@ impl ReflectionClient {
                 count += 1;
             }
         }
+
         Ok(count)
     }
 }

@@ -1,19 +1,18 @@
-//! # gRPC Client Layer
+//! # Generic gRPC Client
 //!
-//! This module handles the low-level networking and `tonic` client construction.
-//! It is decoupled from the descriptor logic and strictly focuses on sending
-//! requests and receiving responses using the `JsonCodec`.
+//! This module provides a wrapper around `tonic::client::Grpc` to perform network calls
+//! without generated Rust types.
 //!
-//! # Error Handling
+//! Unlike a standard gRPC client where types are known at compile time, this client
+//! uses the `JsonCodec` to serialize/deserialize data dynamically based on `MethodDescriptor`s.
 //!
-//! - **`ClientError`**: Represents transport errors (connection refused, DNS resolution),
-//!   configuration errors (invalid URI), or usage errors (invalid headers).
-//! - **`tonic::Status`**: Represents a successful HTTP interaction where the gRPC server
-//!   returned an error code (e.g., `NOT_FOUND`, `UNAUTHENTICATED`).
+//! ## Key Responsibilities
 //!
-//! The methods in `GrpcClient` separate these two types of errors by returning
-//! `Result<Result<T, Status>, ClientError>`.
-
+//! * **Connection Management**: Establishes the channel to the remote server.
+//! * **Dynamic Dispatch**: Provides methods (`unary`, `server_streaming`, etc.) that accept
+//!   raw `serde_json::Value` and `prost_reflect::MethodDescriptor`.
+//! * **Metadata Handling**: Converts generic string headers into `tonic::metadata` types.
+//!
 use super::codec::JsonCodec;
 use futures_util::Stream;
 use prost_reflect::MethodDescriptor;
@@ -32,8 +31,6 @@ use tonic::{
 #[cfg(test)]
 mod integration_test;
 
-/// Represents failures that occur *before* or during the establishment of the network call,
-/// or protocol violations that prevent a response.
 #[derive(Error, Debug)]
 pub enum ClientError {
     #[error("Invalid uri '{addr}' provided: '{source}'")]
@@ -107,6 +104,12 @@ impl GrpcClient {
     }
 
     /// Performs a Server Streaming gRPC call (Single Request -> Stream of Responses).
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Ok(Stream))` - Successful RPC execution.
+    /// * `Ok(Err(Status))` - RPC executed, but server returned an error.
+    /// * `Err(ClientError)` - Failed to send request or connect.
     pub async fn server_streaming(
         &self,
         method: MethodDescriptor,
@@ -130,6 +133,12 @@ impl GrpcClient {
     }
 
     /// Performs a Client Streaming gRPC call (Stream of Requests -> Single Response).
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Ok(Value))` - Successful RPC execution.
+    /// * `Ok(Err(Status))` - RPC executed, but server returned an error.
+    /// * `Err(ClientError)` - Failed to send request or connect.
     pub async fn client_streaming(
         &self,
         method: MethodDescriptor,
@@ -150,6 +159,12 @@ impl GrpcClient {
     }
 
     /// Performs a Bidirectional Streaming gRPC call (Stream of Requests -> Stream of Responses).
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Ok(Stream))` - Successful RPC execution.
+    /// * `Ok(Err(Status))` - RPC executed, but server returned an error.
+    /// * `Err(ClientError)` - Failed to send request or connect.
     pub async fn bidirectional_streaming(
         &self,
         method: MethodDescriptor,
