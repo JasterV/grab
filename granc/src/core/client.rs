@@ -14,7 +14,7 @@
 //! The methods in `GrpcClient` separate these two types of errors by returning
 //! `Result<Result<T, Status>, ClientError>`.
 
-use crate::codec::JsonCodec;
+use super::codec::JsonCodec;
 use futures_util::Stream;
 use prost_reflect::MethodDescriptor;
 use std::str::FromStr;

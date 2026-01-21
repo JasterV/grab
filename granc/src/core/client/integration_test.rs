@@ -1,5 +1,5 @@
-use crate::client::GrpcClient;
-use crate::reflection::LocalReflectionService;
+use crate::core::client::GrpcClient;
+use crate::core::reflection::DescriptorRegistry;
 use echo_service::EchoServiceServer;
 use echo_service::FILE_DESCRIPTOR_SET;
 use echo_service_impl::EchoServiceImpl;
@@ -28,10 +28,10 @@ async fn spawn_server() -> String {
 async fn test_unary() {
     let url = spawn_server().await;
 
-    let reflection_service = LocalReflectionService::from_bytes(FILE_DESCRIPTOR_SET).unwrap();
+    let reflection_service = DescriptorRegistry::from_bytes(FILE_DESCRIPTOR_SET).unwrap();
 
     let method = reflection_service
-        .fetch_method_descriptor("echo.EchoService/UnaryEcho")
+        .get_method_descriptor("echo.EchoService", "UnaryEcho")
         .unwrap();
 
     let client = GrpcClient::connect(&url).await.unwrap();
@@ -51,10 +51,10 @@ async fn test_unary() {
 async fn test_server_streaming() {
     let url = spawn_server().await;
 
-    let reflection_service = LocalReflectionService::from_bytes(FILE_DESCRIPTOR_SET).unwrap();
+    let reflection_service = DescriptorRegistry::from_bytes(FILE_DESCRIPTOR_SET).unwrap();
 
     let method = reflection_service
-        .fetch_method_descriptor("echo.EchoService/ServerStreamingEcho")
+        .get_method_descriptor("echo.EchoService", "ServerStreamingEcho")
         .unwrap();
 
     let client = GrpcClient::connect(&url).await.unwrap();
@@ -79,9 +79,9 @@ async fn test_server_streaming() {
 async fn test_client_streaming() {
     let url = spawn_server().await;
 
-    let reflection_service = LocalReflectionService::from_bytes(FILE_DESCRIPTOR_SET).unwrap();
+    let reflection_service = DescriptorRegistry::from_bytes(FILE_DESCRIPTOR_SET).unwrap();
     let method = reflection_service
-        .fetch_method_descriptor("echo.EchoService/ClientStreamingEcho")
+        .get_method_descriptor("echo.EchoService", "ClientStreamingEcho")
         .unwrap();
 
     let client = GrpcClient::connect(&url).await.unwrap();
@@ -107,9 +107,9 @@ async fn test_client_streaming() {
 async fn test_bidirectional_streaming() {
     let url = spawn_server().await;
 
-    let reflection_service = LocalReflectionService::from_bytes(FILE_DESCRIPTOR_SET).unwrap();
+    let reflection_service = DescriptorRegistry::from_bytes(FILE_DESCRIPTOR_SET).unwrap();
     let method = reflection_service
-        .fetch_method_descriptor("echo.EchoService/BidirectionalEcho")
+        .get_method_descriptor("echo.EchoService", "BidirectionalEcho")
         .unwrap();
 
     let client = GrpcClient::connect(&url).await.unwrap();

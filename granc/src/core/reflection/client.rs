@@ -3,10 +3,9 @@ use super::generated::reflection_v1::{
     server_reflection_client::ServerReflectionClient, server_reflection_request::MessageRequest,
     server_reflection_response::MessageResponse,
 };
-use crate::reflection::local::LocalReflectionService;
+use crate::core::reflection::DescriptorRegistry;
 use anyhow::Context;
 use prost::Message;
-use prost_reflect::MethodDescriptor;
 use prost_types::{FileDescriptorProto, FileDescriptorSet};
 use std::collections::{HashMap, HashSet};
 use tokio::sync::mpsc;
@@ -14,12 +13,12 @@ use tokio_stream::wrappers::ReceiverStream;
 use tonic::Streaming;
 use tonic::transport::{Channel, Endpoint};
 
-pub struct RemoteReflectionService {
+pub struct ReflectionClient {
     client: ServerReflectionClient<Channel>,
     base_url: String,
 }
 
-impl RemoteReflectionService {
+impl ReflectionClient {
     pub async fn connect(base_url: String) -> anyhow::Result<Self> {
         let endpoint =
             Endpoint::new(base_url.clone()).map_err(|e| anyhow::anyhow!("Invalid URL: {}", e))?;
@@ -35,45 +34,40 @@ impl RemoteReflectionService {
         })
     }
 
-    pub async fn fetch_method_descriptor(
+    pub async fn get_service_descriptor(
         &mut self,
-        method_path: &str,
-    ) -> anyhow::Result<MethodDescriptor> {
-        let (service_name, _) = parse_method_path(method_path)?;
-
-        // 1. Initialize Stream
+        service_name: &str,
+    ) -> anyhow::Result<DescriptorRegistry> {
+        // Initialize Stream
         let (tx, rx) = mpsc::channel(100);
-        let mut response_stream = self.start_stream(rx).await?;
 
-        // 2. Send Initial Request
-        let req = self.make_request(MessageRequest::FileContainingSymbol(
-            service_name.to_string(),
-        ));
+        let mut response_stream = self
+            .client
+            .clone()
+            .server_reflection_info(ReceiverStream::new(rx))
+            .await
+            .context("Failed to start reflection stream")?
+            .into_inner();
+
+        // Send Initial Request
+        let req = ServerReflectionRequest {
+            host: self.base_url.clone(),
+            message_request: Some(MessageRequest::FileContainingSymbol(
+                service_name.to_string(),
+            )),
+        };
+
         tx.send(req).await?;
 
-        // 3. Fetch all transitive dependencies
+        // Fetch all transitive dependencies
         let file_map = self.collect_descriptors(&mut response_stream, tx).await?;
 
-        // 4. Build Registry directly (Unsorted)
+        // Build Registry directly
         let fd_set = FileDescriptorSet {
             file: file_map.into_values().collect(),
         };
 
-        LocalReflectionService::from_file_descriptor_set(fd_set)?
-            .fetch_method_descriptor(method_path)
-            .map_err(From::from)
-    }
-
-    async fn start_stream(
-        &mut self,
-        rx: mpsc::Receiver<ServerReflectionRequest>,
-    ) -> anyhow::Result<Streaming<ServerReflectionResponse>> {
-        self.client
-            .clone()
-            .server_reflection_info(ReceiverStream::new(rx))
-            .await
-            .context("Failed to start reflection stream")
-            .map(|resp| resp.into_inner())
+        Ok(DescriptorRegistry::from_file_descriptor_set(fd_set)?)
     }
 
     async fn collect_descriptors(
@@ -141,13 +135,13 @@ impl RemoteReflectionService {
             let fd = FileDescriptorProto::decode(raw.as_ref())
                 .context("Failed to decode FileDescriptorProto")?;
 
-            if let Some(name) = &fd.name {
-                if !file_map.contains_key(name) {
-                    sent_count += self
-                        .queue_dependencies(&fd, file_map, requested, tx)
-                        .await?;
-                    file_map.insert(name.clone(), fd);
-                }
+            if let Some(name) = &fd.name
+                && !file_map.contains_key(name)
+            {
+                sent_count += self
+                    .queue_dependencies(&fd, file_map, requested, tx)
+                    .await?;
+                file_map.insert(name.clone(), fd);
             }
         }
 
@@ -164,23 +158,15 @@ impl RemoteReflectionService {
         let mut count = 0;
         for dep in &fd.dependency {
             if !file_map.contains_key(dep) && requested.insert(dep.clone()) {
-                let req = self.make_request(MessageRequest::FileByFilename(dep.clone()));
+                let req = ServerReflectionRequest {
+                    host: self.base_url.clone(),
+                    message_request: Some(MessageRequest::FileByFilename(dep.clone())),
+                };
+
                 tx.send(req).await?;
                 count += 1;
             }
         }
         Ok(count)
     }
-
-    fn make_request(&self, msg: MessageRequest) -> ServerReflectionRequest {
-        ServerReflectionRequest {
-            host: self.base_url.clone(),
-            message_request: Some(msg),
-        }
-    }
-}
-
-fn parse_method_path(path: &str) -> anyhow::Result<(&str, &str)> {
-    path.split_once('/')
-        .ok_or_else(|| anyhow::anyhow!("Invalid method path"))
 }

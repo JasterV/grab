@@ -20,17 +20,15 @@ pub enum ReflectionError {
     ServiceNotFound(String),
     #[error("Method '{0}' not found")]
     MethodNotFound(String),
-    #[error("Invalid method path. Expected format 'package.Service/Method', got '{0}'")]
-    InvalidFormat(String),
 }
 
 /// A registry that holds loaded Protobuf definitions and allows looking up
 /// services and methods by name.
-pub struct LocalReflectionService {
+pub struct DescriptorRegistry {
     pool: DescriptorPool,
 }
 
-impl LocalReflectionService {
+impl DescriptorRegistry {
     /// Decodes a FileDescriptorSet directly from a byte slice.
     /// Useful for tests or embedded descriptors.
     #[cfg(test)]
@@ -53,14 +51,11 @@ impl LocalReflectionService {
 
     /// Resolves a full method path (e.g., "my.package.MyService/MyMethod")
     /// into a MethodDescriptor.
-    pub fn fetch_method_descriptor(
+    pub fn get_method_descriptor(
         &self,
-        method_path: &str,
+        service_name: &str,
+        method_name: &str,
     ) -> Result<MethodDescriptor, ReflectionError> {
-        let (service_name, method_name) = method_path
-            .split_once('/')
-            .ok_or_else(|| ReflectionError::InvalidFormat(method_path.to_string()))?;
-
         let service = self
             .pool
             .get_service_by_name(service_name)
