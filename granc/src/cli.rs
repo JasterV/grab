@@ -28,7 +28,7 @@ pub struct Cli {
     pub endpoint: (String, String),
 }
 
-impl From<Cli> for crate::core::Input {
+impl From<Cli> for granc::CallInput {
     /// Converts the raw CLI arguments into the internal `Input` representation.
     fn from(value: Cli) -> Self {
         let (service, method) = value.endpoint;
@@ -37,7 +37,6 @@ impl From<Cli> for crate::core::Input {
             proto_set: value.proto_set,
             body: value.body,
             headers: value.headers,
-            url: value.url,
             service,
             method,
         }

@@ -17,6 +17,10 @@ default-run = "granc"
 [features]
 gen-proto = ["dep:tonic-prost-build"]
 
+[lib]
+name = "granc"
+path = "src/lib.rs"
+
 [[bin]]
 name = "granc"
 path = "src/main.rs"

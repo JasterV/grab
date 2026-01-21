@@ -71,30 +71,18 @@ pub struct ReflectionClient<T = Channel> {
     base_url: String,
 }
 
-/// Implementation for the standard network client.
-impl ReflectionClient<Channel> {
-    pub async fn connect(base_url: String) -> Result<Self, ReflectionConnectError> {
-        let endpoint = Endpoint::new(base_url.clone())
-            .map_err(|e| ReflectionConnectError::InvalidUrl(base_url.clone(), e))?;
-
-        let channel = endpoint
-            .connect()
-            .await
-            .map_err(|e| ReflectionConnectError::ConnectionFailed(base_url.clone(), e))?;
-
-        let client = ServerReflectionClient::new(channel);
-
-        Ok(Self { client, base_url })
-    }
-}
-
-impl<T> ReflectionClient<T>
+impl<S> ReflectionClient<S>
 where
-    T: GrpcService<tonic::body::Body>,
-    T::Error: Into<BoxError>,
-    T::ResponseBody: HttpBody<Data = tonic::codegen::Bytes> + Send + 'static,
-    <T::ResponseBody as HttpBody>::Error: Into<BoxError> + Send,
+    S: GrpcService<tonic::body::Body>,
+    S::Error: Into<BoxError>,
+    S::ResponseBody: HttpBody<Data = tonic::codegen::Bytes> + Send + 'static,
+    <S::ResponseBody as HttpBody>::Error: Into<BoxError> + Send,
 {
+    pub fn new(channel: S, base_url: String) -> Self {
+        let client = ServerReflectionClient::new(channel);
+        Self { client, base_url }
+    }
+
     /// Asks the reflection service for the file containing the requested symbol (e.g., `my.package.MyService`).
     ///
     /// **Recursive Resolution**:

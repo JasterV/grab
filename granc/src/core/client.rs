@@ -28,7 +28,7 @@ use tonic::{
         MetadataKey, MetadataValue,
         errors::{InvalidMetadataKey, InvalidMetadataValue},
     },
-    transport::Channel,
+    transport::{Channel, Endpoint},
 };
 
 #[cfg(test)]
@@ -36,13 +36,6 @@ mod integration_test;
 
 #[derive(Error, Debug)]
 pub enum ClientError {
-    #[error("Invalid uri '{addr}' provided: '{source}'")]
-    InvalidUri {
-        addr: String,
-        source: http::uri::InvalidUri,
-    },
-    #[error("Failed to connect: '{0}'")]
-    ConnectionFailed(tonic::transport::Error),
     #[error("Internal error, the client was not ready: '{0}'")]
     ClientNotReady(#[source] BoxError),
     #[error("Invalid metadata (header) key '{key}': '{source}'")]
@@ -57,6 +50,13 @@ pub enum ClientError {
     },
 }
 
+#[derive(Debug, thiserror::Error)]
+pub enum ClientConnectError {
+    #[error("Invalid URL '{0}': {1}")]
+    InvalidUrl(String, #[source] tonic::transport::Error),
+    #[error("Failed to connect to '{0}': {1}")]
+    ConnectionFailed(String, #[source] tonic::transport::Error),
+}
 /// A generic gRPC client that uses dynamic dispatch via `prost-reflect`.
 ///
 /// It can wrap any inner service `T` that implements `GrpcService<tonic::body::Body>`,
@@ -64,28 +64,6 @@ pub enum ClientError {
 #[derive(Clone)]
 pub struct GrpcClient<T = Channel> {
     service: T,
-}
-
-/// Implementation for the standard network client using `Channel`.
-impl GrpcClient<Channel> {
-    /// Connects to the specified gRPC server address.
-    ///
-    /// # Arguments
-    /// * `addr` - The URI of the server (e.g., `http://localhost:50051`).
-    pub async fn connect(addr: &str) -> Result<Self, ClientError> {
-        let uri =
-            tonic::transport::Uri::from_str(addr).map_err(|source| ClientError::InvalidUri {
-                addr: addr.to_string(),
-                source,
-            })?;
-
-        let channel = Channel::builder(uri)
-            .connect()
-            .await
-            .map_err(ClientError::ConnectionFailed)?;
-
-        Ok(Self { service: channel })
-    }
 }
 
 impl<S> GrpcClient<S>

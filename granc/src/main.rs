@@ -1,19 +1,17 @@
 #![doc = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/README.md"))]
 
 mod cli;
-mod core;
 
 use clap::Parser;
 use cli::Cli;
+use granc::Output;
 use std::process;
-
-use crate::core::Output;
 
 #[tokio::main]
 async fn main() {
     let args = Cli::parse();
 
-    match core::run(core::Input::from(args)).await {
+    match granc::run(granc::Input::from(args)).await {
         Ok(Output::Unary(Ok(value))) => print_json(&value),
         Ok(Output::Unary(Err(status))) => print_status(&status),
         Ok(Output::Streaming(Ok(values))) => print_stream(&values),
