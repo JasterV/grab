@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## `granc` - [0.3.3](https://github.com/JasterV/granc/compare/granc-v0.3.1...granc-v0.3.3) - 2026-01-22
+
+- Updated deps
+
 ## `granc` - [0.3.2](https://github.com/JasterV/granc/compare/granc-v0.3.1...granc-v0.3.2) - 2026-01-22
 
 ### Fixed
