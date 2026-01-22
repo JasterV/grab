@@ -63,7 +63,7 @@ pub enum ReflectionResolveError {
 const EMPTY_HOST: &str = "";
 
 /// A generic client for the gRPC Server Reflection Protocol.
-pub struct ReflectionClient<T = Channel> {
+pub(crate) struct ReflectionClient<T = Channel> {
     client: ServerReflectionClient<T>,
 }
 
@@ -74,7 +74,7 @@ where
     S::ResponseBody: HttpBody<Data = tonic::codegen::Bytes> + Send + 'static,
     <S::ResponseBody as HttpBody>::Error: Into<BoxError> + Send,
 {
-    pub fn new(channel: S) -> Self {
+    pub(crate) fn new(channel: S) -> Self {
         let client = ServerReflectionClient::new(channel);
         Self { client }
     }
@@ -90,7 +90,7 @@ where
     ///
     /// * `Ok(fd_set)` - Successful reflection requests execution.
     /// * `Err(ReflectionResolveError)` - Failed to request file descriptors to the reflection service.
-    pub async fn file_descriptor_set_by_symbol(
+    pub(crate) async fn file_descriptor_set_by_symbol(
         &mut self,
         service_name: &str,
     ) -> Result<FileDescriptorSet, ReflectionResolveError> {

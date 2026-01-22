@@ -7,7 +7,7 @@
 //! 2. **Conversion**: transforming the raw arguments into the `crate::core::Input` struct used by the core logic.
 //!
 use clap::Parser;
-use granc_core::GrpcRequest;
+use granc_core::client::DynamicRequest;
 
 #[derive(Parser)]
 #[command(name = "granc", version, about = "Dynamic gRPC CLI")]
@@ -28,7 +28,7 @@ pub struct Cli {
     pub endpoint: (String, String),
 }
 
-impl From<Cli> for GrpcRequest {
+impl From<Cli> for DynamicRequest {
     /// Converts the raw CLI arguments into the internal `Input` representation.
     fn from(value: Cli) -> Self {
         let (service, method) = value.endpoint;
