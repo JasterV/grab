@@ -27,10 +27,6 @@
 // * **Encoder**: Validates `serde_json::Value` against the input `MessageDescriptor` and serializes it.
 // * **Decoder**: Deserializes bytes into a `DynamicMessage` and converts it back to `serde_json::Value`.
 //!
-//! ## Feature Flags (Internal use only)
-//!
-//! * `gen-proto`: Enables support for generating reflection service bindings (internal use).
-//!
 //! ## Re-exports
 //!
 //! This crate re-exports `prost`, `prost-reflect`, and `tonic` to ensure that consumers
