@@ -1,12 +1,11 @@
-use crate::reflection::client::{
-    ReflectionClient, ReflectionResolveError, integration_test::dummy_service::DummyEchoService,
-};
 use echo_service::{EchoServiceServer, FILE_DESCRIPTOR_SET};
+use echo_service_impl::DummyEchoService;
+use granc_core::reflection::client::{ReflectionClient, ReflectionResolveError};
 use prost_reflect::DescriptorPool;
 use tonic::Code;
 use tonic_reflection::server::v1::ServerReflectionServer;
 
-mod dummy_service;
+mod echo_service_impl;
 
 fn setup_reflection_client()
 -> ReflectionClient<ServerReflectionServer<impl tonic_reflection::server::v1::ServerReflection>> {
@@ -91,6 +90,7 @@ async fn test_reflection_client_fetches_service_file_descriptor() {
         bidirectional_method.is_client_streaming(),
         "Bidirectional MUST be client streaming"
     );
+
     assert!(
         bidirectional_method.is_server_streaming(),
         "Bidirectional MUST be server streaming"
@@ -107,7 +107,7 @@ async fn test_reflection_service_not_found_error() {
 
     assert!(matches!(
         result,
-        Err(crate::reflection::client::ReflectionResolveError::ServerStreamFailure(status)) if status.code() == Code::NotFound
+        Err(ReflectionResolveError::ServerStreamFailure(status)) if status.code() == Code::NotFound
     ));
 }
 

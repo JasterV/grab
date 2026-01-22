@@ -1,14 +1,14 @@
 [package]
 authors = { workspace = true }
 categories = ["network-programming"]
-description = "Cranc's gRPC CLI core library"
+description = "Cranc gRPC CLI core library"
 edition = { workspace = true }
 homepage = { workspace = true }
 keywords = ["grpc", "network-programming", "grpc-reflection"]
 license = { workspace = true }
 name = "granc_core"
 publish = true
-readme = "./README.md"
+readme = "README.md"
 repository = { workspace = true }
 rust-version = { workspace = true }
 version = { workspace = true }

@@ -1,11 +1,8 @@
-//! # Command Line Interface Definition
+//! # CLI
 //!
-//! This module utilizes `clap` to define the command-line arguments and flags
-//! accepted by the application. It acts as the user-facing entry point, responsible for:
+//! This module defines the command-line interface of `granc` using `clap`.
 //!
-//! 1. **Parsing**: extracting and ensuring each argument and flag can be parsed to the target Rust types.
-//! 2. **Conversion**: transforming the raw arguments into the `crate::core::Input` struct used by the core logic.
-//!
+//! It is responsible for parsing user input and performing validation (e.g., ensuring headers are `key:value`);
 use clap::Parser;
 use granc_core::client::DynamicRequest;
 

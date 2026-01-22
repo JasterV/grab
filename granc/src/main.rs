@@ -1,17 +1,24 @@
-#![doc = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/README.md"))]
+//! # Granc CLI Entry Point
+//!
+//! The main executable for the Granc tool. This file drives the application lifecycle:
+//!
+//! 1. **Initialization**: Parses command-line arguments using [`cli::Cli`].
+//! 2. **Connection**: Establishes a TCP connection to the target server via `granc_core`.
+//! 3. **Execution**: Delegates the request processing to the `GrancClient`.
+//! 4. **Presentation**: Formats and prints the resulting JSON or error status to standard output/error.
 
 mod cli;
 
 use clap::Parser;
 use cli::Cli;
-use granc_core::client::{DynamicRequest, DynamicResponse, GrpcClient};
+use granc_core::client::{DynamicRequest, DynamicResponse, GrancClient};
 use std::process;
 
 #[tokio::main]
 async fn main() {
     let args = Cli::parse();
 
-    let client = match GrpcClient::connect(&args.url).await {
+    let mut client = match GrancClient::connect(&args.url).await {
         Ok(client) => client,
         Err(err) => {
             eprintln!("Error: {err}");

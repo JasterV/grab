@@ -1,10 +1,7 @@
 use echo_service::EchoServiceServer;
 use echo_service::FILE_DESCRIPTOR_SET;
 use echo_service_impl::EchoServiceImpl;
-use granc_core::{
-    GrpcClient,
-    client::{DynamicRequest, DynamicResponse},
-};
+use granc_core::client::{DynamicRequest, DynamicResponse, GrancClient};
 
 mod echo_service_impl;
 
@@ -20,7 +17,7 @@ async fn test_unary() {
         method: "UnaryEcho".to_string(),
     };
 
-    let client = GrpcClient::new(EchoServiceServer::new(EchoServiceImpl));
+    let mut client = GrancClient::new(EchoServiceServer::new(EchoServiceImpl));
 
     let res = client.dynamic(request).await.unwrap();
 
@@ -45,7 +42,7 @@ async fn test_server_streaming() {
         method: "ServerStreamingEcho".to_string(),
     };
 
-    let client = GrpcClient::new(EchoServiceServer::new(EchoServiceImpl));
+    let mut client = GrancClient::new(EchoServiceServer::new(EchoServiceImpl));
 
     let res = client.dynamic(request).await.unwrap();
 
@@ -81,7 +78,7 @@ async fn test_client_streaming() {
         method: "ClientStreamingEcho".to_string(),
     };
 
-    let client = GrpcClient::new(EchoServiceServer::new(EchoServiceImpl));
+    let mut client = GrancClient::new(EchoServiceServer::new(EchoServiceImpl));
 
     let res = client.dynamic(request).await.unwrap();
 
@@ -111,7 +108,7 @@ async fn test_bidirectional_streaming() {
         method: "BidirectionalEcho".to_string(),
     };
 
-    let client = GrpcClient::new(EchoServiceServer::new(EchoServiceImpl));
+    let mut client = GrancClient::new(EchoServiceServer::new(EchoServiceImpl));
 
     let res = client.dynamic(request).await.unwrap();
 

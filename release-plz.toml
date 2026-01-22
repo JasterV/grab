@@ -1,6 +1,6 @@
 [workspace]
 # set the path of all the crates to the changelog to the root of the repository
-changelog_path = "./granc/CHANGELOG.md"
+changelog_path = "CHANGELOG.md"
 pr_draft = true
 pr_labels = ["release"]
 pr_branch_prefix = "release-"

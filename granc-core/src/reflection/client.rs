@@ -1,18 +1,15 @@
-//! # gRPC Server Reflection Client
+//! # Reflection Client
 //!
-//! This module implements a client for `grpc.reflection.v1`. It enables `granc` to function
-//! without a local descriptor file by asking the server for its own schema.
+//! A client implementation for `grpc.reflection.v1`.
 //!
-//! ## The Resolution Process
+//! This client is responsible for building a complete `FileDescriptorSet` by querying
+//! a server that supports reflection. It handles the complexity of dependency management by inspecting
+//! imports and recursively fetching missing files until the entire schema tree for a
+//! requested symbol is resolved.
 //!
-//! 1. **Connect**: Opens a stream to the reflection endpoint.
-//! 2. **Request Symbol**: Asks for the file containing the requested service (e.g., `my.package.MyService`).
-//! 3. **Recursive Resolution**:
-//!    - The server returns a `FileDescriptorProto`.
-//!    - The client inspects the imports (dependencies) of that file.
-//!    - It recursively requests any missing dependencies until the full schema tree is built.
-//! 4. **Build Registry**: Returns a fully populated `DescriptorRegistry`.
+//! ## References
 //!
+//! * [gRPC Server Reflection Protocol](https://github.com/grpc/grpc/blob/master/doc/server-reflection.md)//!
 use super::generated::reflection_v1::{
     ServerReflectionRequest, ServerReflectionResponse,
     server_reflection_client::ServerReflectionClient, server_reflection_request::MessageRequest,
@@ -27,9 +24,6 @@ use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 use tonic::transport::Channel;
 use tonic::{Streaming, client::GrpcService};
-
-#[cfg(test)]
-mod integration_test;
 
 #[derive(Debug, thiserror::Error)]
 pub enum ReflectionResolveError {
@@ -63,7 +57,7 @@ pub enum ReflectionResolveError {
 const EMPTY_HOST: &str = "";
 
 /// A generic client for the gRPC Server Reflection Protocol.
-pub(crate) struct ReflectionClient<T = Channel> {
+pub struct ReflectionClient<T = Channel> {
     client: ServerReflectionClient<T>,
 }
 
@@ -74,7 +68,7 @@ where
     S::ResponseBody: HttpBody<Data = tonic::codegen::Bytes> + Send + 'static,
     <S::ResponseBody as HttpBody>::Error: Into<BoxError> + Send,
 {
-    pub(crate) fn new(channel: S) -> Self {
+    pub fn new(channel: S) -> Self {
         let client = ServerReflectionClient::new(channel);
         Self { client }
     }
@@ -90,7 +84,7 @@ where
     ///
     /// * `Ok(fd_set)` - Successful reflection requests execution.
     /// * `Err(ReflectionResolveError)` - Failed to request file descriptors to the reflection service.
-    pub(crate) async fn file_descriptor_set_by_symbol(
+    pub async fn file_descriptor_set_by_symbol(
         &mut self,
         service_name: &str,
     ) -> Result<FileDescriptorSet, ReflectionResolveError> {
