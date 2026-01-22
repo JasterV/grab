@@ -9,7 +9,7 @@ homepage = "https://github.com/JasterV/granc"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/JasterV/granc"
 rust-version = "1.89"
-version = "0.3.1"
+version = "0.3.2"
 
 [workspace.dependencies]
 serde_json = "1.0.149"
