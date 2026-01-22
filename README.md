@@ -133,6 +133,15 @@ granc \
 * **Pretty Printing**: Enhanced colored output for JSON responses.
 * **TLS Support**: Configurable root certificates and client identity.
 
+## 🧩 Using as a Library
+
+The core logic of Granc is decoupled into a separate library crate, **`granc-core`**.
+
+If you want to build your own tools using the dynamic gRPC engine (e.g., for custom integration testing, proxies, or automation tools), you can depend on `granc-core` directly.
+
+* **Documentation & Usage**: See the [**`granc-core` README**](./granc-core/README.md) for examples on how to use the `GrancClient` programmatically.
+* **Crate**: [`granc-core`](https://crates.io/crates/granc_core)
+
 ## ⚠️ Common Errors
 
 **1. `Service 'x' not found**`

@@ -327,7 +327,7 @@ dependencies = [
 
 [[package]]
 name = "granc"
-version = "0.2.3"
+version = "0.2.4"
 dependencies = [
  "clap",
  "granc_core",
@@ -338,7 +338,7 @@ dependencies = [
 
 [[package]]
 name = "granc_core"
-version = "0.2.3"
+version = "0.2.4"
 dependencies = [
  "echo-service",
  "futures-util",

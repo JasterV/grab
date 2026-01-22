@@ -7,23 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## `granc` - [0.2.3](https://github.com/JasterV/granc/compare/granc-v0.2.2...granc-v0.2.3) - 2026-01-21
+## `granc` - [0.2.4](https://github.com/JasterV/granc/compare/granc-v0.2.3...granc-v0.2.4) - 2026-01-22
 
-### Other
+- **Published granc-core** as a library crate `granc-core` ([#16](https://github.com/JasterV/granc/pull/16))
+
+## `granc_core` - [0.2.4](https://github.com/JasterV/granc/compare/granc_core-v0.2.3...granc_core-v0.2.4) - 2026-01-22
+
+- **Published granc-core** as a library crate `granc-core` ([#16](https://github.com/JasterV/granc/pull/16))
+
+## `granc` - [0.2.3](https://github.com/JasterV/granc/compare/granc-v0.2.2...granc-v0.2.3) - 2026-01-21
 
 - **Internal refactor**: Decouple ReflectionClient to possibly publish in a separate crate
 
 ## `granc` - [0.2.2](https://github.com/JasterV/granc/compare/granc-v0.2.1...granc-v0.2.2) - 2026-01-21
 
-### Other
-
-- Update README.md
+- Updated README.md
 
 ## `granc` - [0.2.1](https://github.com/JasterV/granc/compare/granc-v0.2.0...granc-v0.2.1) - 2026-01-21
 
-### Other
-
-- Update README
+- Updated README
 
 ## `granc` - [0.2.0](https://github.com/JasterV/granc/compare/granc-v0.1.0...granc-v0.2.0) - 2026-01-21
 
