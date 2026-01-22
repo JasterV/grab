@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## `granc` - [0.3.1](https://github.com/JasterV/granc/compare/granc-v0.3.0...granc-v0.3.1) - 2026-01-22
+
+### Other
+- update Cargo.lock dependencies
+
+## `granc_core` - [0.3.1](https://github.com/JasterV/granc/compare/granc_core-v0.3.0...granc_core-v0.3.1) - 2026-01-22
+
+### Other
+- update granc-core documentation
+
 ## `granc_core` - [0.3.0](https://github.com/JasterV/granc/compare/granc_core-v0.2.4...granc_core-v0.3.0) - 2026-01-22
 
 - Separate reflection generation binary to not be published ([#20](https://github.com/JasterV/granc/pull/20))
