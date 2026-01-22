@@ -1,7 +1,6 @@
 # Granc 🦀
 
 [![granc on crates.io](https://img.shields.io/crates/v/granc)](https://crates.io/crates/granc)
-[![Documentation](https://img.shields.io/docsrs/granc/latest)](https://docs.rs/granc)
 [![License](https://img.shields.io/crates/l/granc.svg)](https://github.com/JasterV/granc/blob/main/LICENSE)
 
 > ⚠️ **Status: Experimental**
