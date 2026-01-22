@@ -1,11 +1,11 @@
+use dummy_echo_service_impl::DummyEchoService;
 use echo_service::{EchoServiceServer, FILE_DESCRIPTOR_SET};
-use echo_service_impl::DummyEchoService;
 use granc_core::reflection::client::{ReflectionClient, ReflectionResolveError};
 use prost_reflect::DescriptorPool;
 use tonic::Code;
 use tonic_reflection::server::v1::ServerReflectionServer;
 
-mod echo_service_impl;
+mod dummy_echo_service_impl;
 
 fn setup_reflection_client()
 -> ReflectionClient<ServerReflectionServer<impl tonic_reflection::server::v1::ServerReflection>> {
