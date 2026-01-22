@@ -330,10 +330,17 @@ name = "granc"
 version = "0.2.4"
 dependencies = [
  "clap",
- "granc_core",
+ "granc_core 0.2.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_json",
  "tokio",
  "tonic",
+]
+
+[[package]]
+name = "granc-tools"
+version = "0.0.0"
+dependencies = [
+ "tonic-prost-build",
 ]
 
 [[package]]
@@ -353,8 +360,27 @@ dependencies = [
  "tokio-stream",
  "tonic",
  "tonic-prost",
- "tonic-prost-build",
  "tonic-reflection",
+]
+
+[[package]]
+name = "granc_core"
+version = "0.2.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2b70761ae61e50a3da701f80dec0a5768e43420895922e233894865ce3969cea"
+dependencies = [
+ "futures-util",
+ "http",
+ "http-body",
+ "prost",
+ "prost-reflect",
+ "prost-types",
+ "serde_json",
+ "thiserror",
+ "tokio",
+ "tokio-stream",
+ "tonic",
+ "tonic-prost",
 ]
 
 [[package]]
