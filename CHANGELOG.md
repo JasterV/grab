@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## `granc` - [0.2.5](https://github.com/JasterV/granc/compare/granc-v0.2.4...granc-v0.2.5) - 2026-01-22
+
+### Other
+- release v0.2.4 ([#17](https://github.com/JasterV/granc/pull/17))
+- separate core logic into a library crate `granc-core` ([#16](https://github.com/JasterV/granc/pull/16))
+
+## `granc_core` - [0.2.5](https://github.com/JasterV/granc/compare/granc_core-v0.2.4...granc_core-v0.2.5) - 2026-01-22
+
+### Other
+- update Cargo.lock dependencies
+
 ## `granc` - [0.2.4](https://github.com/JasterV/granc/compare/granc-v0.2.3...granc-v0.2.4) - 2026-01-22
 
 - **Published granc-core** as a library crate `granc-core` ([#16](https://github.com/JasterV/granc/pull/16))
