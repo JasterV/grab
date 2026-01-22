@@ -13,17 +13,9 @@ repository = { workspace = true }
 rust-version = { workspace = true }
 version = { workspace = true }
 
-[features]
-gen-proto = ["dep:tonic-prost-build"]
-
 [lib]
 name = "granc_core"
 path = "src/lib.rs"
-
-[[bin]]
-name = "generate-reflection-service"
-path = "bin/generate_reflection_service.rs"
-required-features = ["gen-proto"]
 
 [dependencies]
 futures-util = "0.3.31"
@@ -38,7 +30,6 @@ tokio = { workspace = true, features = ["sync"] }
 tokio-stream = "0.1.18"
 tonic = { workspace = true }
 tonic-prost = { workspace = true }
-tonic-prost-build = { workspace = true, optional = true }
 
 [dev-dependencies]
 echo-service = { path = "../echo-service" }

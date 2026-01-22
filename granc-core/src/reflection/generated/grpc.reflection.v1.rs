@@ -7,11 +7,10 @@ pub struct ServerReflectionRequest {
     /// To use reflection service, the client should set one of the following
     /// fields in message_request. The server distinguishes requests by their
     /// defined field and then handles them using corresponding methods.
-    #[prost(
-        oneof = "server_reflection_request::MessageRequest",
-        tags = "3, 4, 5, 6, 7"
-    )]
-    pub message_request: ::core::option::Option<server_reflection_request::MessageRequest>,
+    #[prost(oneof = "server_reflection_request::MessageRequest", tags = "3, 4, 5, 6, 7")]
+    pub message_request: ::core::option::Option<
+        server_reflection_request::MessageRequest,
+    >,
 }
 /// Nested message and enum types in `ServerReflectionRequest`.
 pub mod server_reflection_request {
@@ -67,11 +66,10 @@ pub struct ServerReflectionResponse {
     pub original_request: ::core::option::Option<ServerReflectionRequest>,
     /// The server sets one of the following fields according to the message_request
     /// in the request.
-    #[prost(
-        oneof = "server_reflection_response::MessageResponse",
-        tags = "4, 5, 6, 7"
-    )]
-    pub message_response: ::core::option::Option<server_reflection_response::MessageResponse>,
+    #[prost(oneof = "server_reflection_response::MessageResponse", tags = "4, 5, 6, 7")]
+    pub message_response: ::core::option::Option<
+        server_reflection_response::MessageResponse,
+    >,
 }
 /// Nested message and enum types in `ServerReflectionResponse`.
 pub mod server_reflection_response {
@@ -153,10 +151,10 @@ pub mod server_reflection_client {
         dead_code,
         missing_docs,
         clippy::wildcard_imports,
-        clippy::let_unit_value
+        clippy::let_unit_value,
     )]
-    use tonic::codegen::http::Uri;
     use tonic::codegen::*;
+    use tonic::codegen::http::Uri;
     #[derive(Debug, Clone)]
     pub struct ServerReflectionClient<T> {
         inner: tonic::client::Grpc<T>,
@@ -195,13 +193,14 @@ pub mod server_reflection_client {
             F: tonic::service::Interceptor,
             T::ResponseBody: Default,
             T: tonic::codegen::Service<
-                    http::Request<tonic::body::Body>,
-                    Response = http::Response<
-                        <T as tonic::client::GrpcService<tonic::body::Body>>::ResponseBody,
-                    >,
+                http::Request<tonic::body::Body>,
+                Response = http::Response<
+                    <T as tonic::client::GrpcService<tonic::body::Body>>::ResponseBody,
                 >,
-            <T as tonic::codegen::Service<http::Request<tonic::body::Body>>>::Error:
-                Into<StdError> + std::marker::Send + std::marker::Sync,
+            >,
+            <T as tonic::codegen::Service<
+                http::Request<tonic::body::Body>,
+            >>::Error: Into<StdError> + std::marker::Send + std::marker::Sync,
         {
             ServerReflectionClient::new(InterceptedService::new(inner, interceptor))
         }
@@ -240,23 +239,33 @@ pub mod server_reflection_client {
         /// all related requests go to a single server.
         pub async fn server_reflection_info(
             &mut self,
-            request: impl tonic::IntoStreamingRequest<Message = super::ServerReflectionRequest>,
+            request: impl tonic::IntoStreamingRequest<
+                Message = super::ServerReflectionRequest,
+            >,
         ) -> std::result::Result<
             tonic::Response<tonic::codec::Streaming<super::ServerReflectionResponse>>,
             tonic::Status,
         > {
-            self.inner.ready().await.map_err(|e| {
-                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
-            })?;
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
             let codec = tonic_prost::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
                 "/grpc.reflection.v1.ServerReflection/ServerReflectionInfo",
             );
             let mut req = request.into_streaming_request();
-            req.extensions_mut().insert(GrpcMethod::new(
-                "grpc.reflection.v1.ServerReflection",
-                "ServerReflectionInfo",
-            ));
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "grpc.reflection.v1.ServerReflection",
+                        "ServerReflectionInfo",
+                    ),
+                );
             self.inner.streaming(req, path, codec).await
         }
     }
