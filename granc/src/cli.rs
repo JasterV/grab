@@ -81,9 +81,6 @@ pub enum DescribeCommands {
     Message {
         /// Fully qualified message name (e.g. my.package.Message)
         message: String,
-        /// Recursively describe all dependencies (nested messages and enums)
-        #[arg(short, long)]
-        recursive: bool,
     },
 }
 

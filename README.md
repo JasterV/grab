@@ -18,6 +18,7 @@ It is heavily inspired by tools like `grpcurl` but built to leverage the safety 
 * **Dynamic Encoding/Decoding**: Transcodes JSON to Protobuf (and vice versa) on the fly using `prost-reflect`.
 * **Smart Dispatch**: Automatically detects if a call is Unary, Server Streaming, Client Streaming, or Bidirectional based on the descriptor.
 * **Server Reflection**: Can fetch schemas directly from the server, removing the need to pass a local file descriptor set file (`.bin` or `.pb`).
+* **Introspection Tools**: Commands to list services and describe methods/messages.
 * **Metadata Support**: Easily attach custom headers (authorization, tracing) to your requests.
 * **Fast Fail Validation**: Validates your JSON *before* hitting the network.
 * **Zero Compilation Dependencies**: Does not require generating Rust code for your protos. Just point to a descriptor file.
@@ -68,23 +69,74 @@ protoc \
 **Syntax:**
 
 ```bash
-granc [OPTIONS] <URL> <ENDPOINT>
+granc <URL> <COMMAND> [ARGS]
 ```
 
-### Arguments
+### Global Arguments
 
 | Argument | Description | Required |
 | --- | --- | --- |
-| `<URL>` | Server address (e.g., `http://[::1]:50051`). | **Yes** |
+| `<URL>` | Server address (e.g., `http://[::1]:50051`). Must be the first argument. | **Yes** |
+
+### Commands
+
+#### 1. `call` (Make Requests)
+
+Performs a gRPC call using a JSON body.
+
+```bash
+granc http://localhost:50051 call <ENDPOINT> --body <JSON> [OPTIONS]
+```
+
+| Argument/Flag | Description | Required |
+| --- | --- | --- |
 | `<ENDPOINT>` | Fully qualified method name (e.g., `my.package.Service/Method`). | **Yes** |
+| `--body` | The request body in JSON format. Object `{}` for unary, Array `[]` for streaming. | **Yes** |
+| `--header`, `-H` | Custom header `key:value`. Can be used multiple times. | No |
+| `--file-descriptor-set` | Path to the binary FileDescriptorSet (`.bin`) if not using reflection. | No |
 
-### Options
+**Example:**
 
-| Flag | Short | Description | Required |
-| --- | --- | --- | --- |
-| `--proto-set` |  | Path to the binary FileDescriptorSet (`.bin`). | **No** |
-| `--body` |  | The request body in JSON format. | **Yes** |
-| `--header` | `-H` | Custom header `key:value`. Can be used multiple times. | No |
+```bash
+granc http://localhost:50051 call helloworld.Greeter/SayHello \
+  --body '{"name": "Ferris"}'
+```
+
+#### 2. `list` (Discovery) (Server reflection required)
+
+Lists all services exposed by the server.
+
+```bash
+granc http://localhost:50051 list services
+```
+
+#### 3. `describe` (Introspection) (Server reflection required)
+
+Inspects services, methods, or messages and prints their Protobuf definition.
+
+**Describe Service:**
+
+Lists all methods in a service.
+
+```bash
+granc http://localhost:50051 describe service my.package.Greeter
+```
+
+**Describe Method:**
+
+Shows the signature, request type, and response type of a method.
+
+```bash
+granc http://localhost:50051 describe method my.package.Greeter/SayHello
+```
+
+**Describe Message:**
+
+Shows the fields of a specific message type.
+
+```bash
+granc http://localhost:50051 describe message my.package.HelloRequest
+```
 
 ### Automatic Server Reflection
 
@@ -130,7 +182,7 @@ granc \
 ## 🔮 Roadmap
 
 * **Interactive Mode**: A REPL for streaming requests interactively.
-* **Pretty Printing**: Enhanced colored output for JSON responses.
+* **Pretty Printing JSON**: Enhanced colored output for JSON responses.
 * **TLS Support**: Configurable root certificates and client identity.
 
 ## 🧩 Using as a Library

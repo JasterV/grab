@@ -1,5 +1,3 @@
-use std::collections::HashSet;
-
 use colored::*;
 use granc_core::{
     client::{
@@ -14,9 +12,6 @@ use tonic::Status;
 ///
 /// Implements `Display` so it can be printed directly.
 pub struct FormattedString(pub String);
-
-/// A wrapper to indicate we want to print a message AND all its dependencies recursively.
-pub struct ExpandedMessage(pub MessageDescriptor);
 
 pub struct ServiceList(pub Vec<String>);
 
@@ -247,70 +242,6 @@ impl From<EnumDescriptor> for FormattedString {
             ));
         }
         out.push_str("}");
-
-        FormattedString(out)
-    }
-}
-
-// Logic to traverse and print the message + dependencies
-impl From<ExpandedMessage> for FormattedString {
-    fn from(wrapper: ExpandedMessage) -> Self {
-        let root = wrapper.0;
-        let mut out = String::new();
-        let mut visited = HashSet::new();
-        let mut stack = vec![Kind::Message(root.clone())];
-
-        // First pass: Print root
-        out.push_str(&FormattedString::from(root.clone()).0);
-        out.push_str("\n");
-        visited.insert(root.full_name().to_string());
-
-        // Recursive pass
-        // We iterate through the stack of things to visit.
-        // For every message we visit, we scan its fields for more types (Messages/Enums)
-        // and add them to the stack if not visited.
-        // We append the printed output to `out`.
-        let mut i = 0;
-        while i < stack.len() {
-            let current = stack[i].clone();
-            i += 1; // move "pointer", we simulate queue behavior in a vec for simplicity or just DFS order
-
-            match current {
-                Kind::Message(m) => {
-                    // For this message, find all sub-dependencies
-                    for field in m.fields() {
-                        let kind = field.kind();
-                        match kind {
-                            Kind::Message(sub_m) => {
-                                if !visited.contains(sub_m.full_name()) {
-                                    visited.insert(sub_m.full_name().to_string());
-                                    stack.push(Kind::Message(sub_m.clone()));
-
-                                    out.push_str("\n");
-                                    out.push_str(&FormattedString::from(sub_m).0);
-                                    out.push_str("\n");
-                                }
-                            }
-                            Kind::Enum(sub_e) => {
-                                if !visited.contains(sub_e.full_name()) {
-                                    visited.insert(sub_e.full_name().to_string());
-                                    stack.push(Kind::Enum(sub_e.clone()));
-
-                                    out.push_str("\n");
-                                    out.push_str(&FormattedString::from(sub_e).0);
-                                    out.push_str("\n");
-                                }
-                            }
-                            _ => {}
-                        }
-                    }
-                }
-                Kind::Enum(_) => {
-                    // Enums don't have further dependencies
-                }
-                _ => {}
-            }
-        }
 
         FormattedString(out)
     }

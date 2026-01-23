@@ -5,14 +5,13 @@
 //! 1. **Initialization**: Parses command-line arguments using [`cli::Cli`].
 //! 2. **Connection**: Establishes a TCP connection to the target server via `granc_core`.
 //! 3. **Execution**: Delegates the request processing to the `GrancClient`.
-//! 4. **Presentation**: Formats and prints the resulting data or error status to standard output/error.
+//! 4. **Presentation**: Formats and prints the resulting data or errors to standard output/error.
 
 mod cli;
 mod formatter;
 
 use clap::Parser;
 use cli::{Cli, Commands, DescribeCommands};
-use formatter::ExpandedMessage;
 use formatter::FormattedString;
 use granc_core::client::{DynamicRequest, DynamicResponse, GrancClient};
 use std::process;
@@ -44,9 +43,7 @@ async fn main() {
                 let (service, method_name) = method;
                 describe_method(&url, &service, &method_name).await
             }
-            DescribeCommands::Message { message, recursive } => {
-                describe_message(&url, &message, recursive).await
-            }
+            DescribeCommands::Message { message } => describe_message(&url, &message).await,
         },
     }
 }
@@ -102,16 +99,12 @@ async fn describe_method(url: &str, service_name: &str, method_name: &str) {
     }
 }
 
-async fn describe_message(url: &str, message_name: &str, recursive: bool) {
+async fn describe_message(url: &str, message_name: &str) {
     let mut client = connect_or_exit(url).await;
 
     match client.get_message_descriptor(message_name).await {
         Ok(descriptor) => {
-            if recursive {
-                println!("{}", FormattedString::from(ExpandedMessage(descriptor)));
-            } else {
-                println!("{}", FormattedString::from(descriptor));
-            }
+            println!("{}", FormattedString::from(descriptor));
         }
         Err(e) => {
             eprintln!("{}", FormattedString::from(e));
