@@ -26,20 +26,8 @@ It is heavily inspired by tools like `grpcurl` but built to leverage the safety 
 
 ## 📦 Installation
 
-### From Crates.io
-
 ```bash
 cargo install --locked granc
-```
-
-### From Source
-
-Ensure you have Rust and Cargo installed.
-
-```bash
-git clone https://github.com/JasterV/granc
-cd granc
-cargo install --path .
 ```
 
 ## 🛠️ Prerequisites
@@ -105,7 +93,7 @@ granc http://localhost:50051 call <ENDPOINT> --body <JSON> [OPTIONS]
 If you omit the `--file-descriptor-set` flag, Granc will automatically attempt to connect to the server's reflection service to download the necessary schemas.
 
 ```bash
-granc http://localhost:50051 call http://localhost:50551 --body '{"name": "Ferris"}' helloworld.Greeter/SayHello
+granc http://localhost:50051 call --body '{"name": "Ferris"}' helloworld.Greeter/SayHello
 ```
 
 This requires the server to have the [`grpc.reflection.v1`](https://github.com/grpc/grpc-proto/blob/master/grpc/reflection/v1/reflection.proto) service enabled.
