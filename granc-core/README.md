@@ -71,14 +71,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 let services = client.list_services().await?;
 println!("Available Services: {:?}", services);
 
-// Get the descriptor for a specific service
-let service_desc = client.get_service_descriptor("helloworld.Greeter").await?;
-println!("Found service: {}", service_desc.name());
+// Get the descriptor for a specific type
+let descriptor = client.get_descriptor_by_symbol("helloworld.Greeter").await?;
 
-// Get the descriptor for a specific message type
-let message_desc = client.get_message_descriptor("helloworld.HelloRequest").await?;
-println!("Message fields: {:?}", message_desc.fields().map(|f| f.name()).collect::<Vec<_>>());
-
+match descriptor {
+    Descriptor::MessageDescriptor(descriptor)) => println!("{}", descriptor.name())
+    Descriptor::ServiceDescriptor(descriptor)) => println!("{}", descriptor.name())
+    Descriptor::EnumDescriptor(descriptor)) => println!("{}", descriptor.name())
+}
 ```
 
 ## 🛠️ Internal Components

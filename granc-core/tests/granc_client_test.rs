@@ -160,16 +160,18 @@ async fn test_list_services_success() {
 async fn test_get_service_descriptor_success() {
     let mut client = GrancClient::new(reflection_service());
 
-    let desc = client
-        .get_service_descriptor("echo.EchoService")
+    let descriptor = client
+        .get_descriptor_by_symbol("echo.EchoService")
         .await
         .expect("Failed to get service descriptor");
 
-    assert_eq!(desc.name(), "EchoService");
-    assert_eq!(desc.full_name(), "echo.EchoService");
+    let descriptor = descriptor.service_descriptor().unwrap();
+
+    assert_eq!(descriptor.name(), "EchoService");
+    assert_eq!(descriptor.full_name(), "echo.EchoService");
 
     // Verify methods are present
-    let method_names: Vec<String> = desc.methods().map(|m| m.name().to_string()).collect();
+    let method_names: Vec<String> = descriptor.methods().map(|m| m.name().to_string()).collect();
     assert!(method_names.contains(&"UnaryEcho".to_string()));
     assert!(method_names.contains(&"ServerStreamingEcho".to_string()));
     assert!(method_names.contains(&"ClientStreamingEcho".to_string()));
@@ -177,30 +179,15 @@ async fn test_get_service_descriptor_success() {
 }
 
 #[tokio::test]
-async fn test_get_service_descriptor_not_found() {
-    let mut client = GrancClient::new(reflection_service());
-
-    // "echo.GhostService" does not exist in the registered descriptors.
-    // The reflection client should fail to find the symbol, resulting in a ResolutionError.
-    let err = client
-        .get_service_descriptor("echo.GhostService")
-        .await
-        .unwrap_err();
-
-    assert!(matches!(
-        err,
-        granc_core::client::GetServiceDescriptorError::ServiceNotFound(_)
-    ));
-}
-
-#[tokio::test]
 async fn test_get_message_descriptor_success() {
     let mut client = GrancClient::new(reflection_service());
 
     let desc = client
-        .get_message_descriptor("echo.EchoRequest")
+        .get_descriptor_by_symbol("echo.EchoRequest")
         .await
         .expect("Failed to get message descriptor");
+
+    let desc = desc.message_descriptor().unwrap();
 
     assert_eq!(desc.name(), "EchoRequest");
     assert_eq!(desc.full_name(), "echo.EchoRequest");
@@ -211,16 +198,18 @@ async fn test_get_message_descriptor_success() {
 }
 
 #[tokio::test]
-async fn test_get_message_descriptor_not_found() {
+async fn test_get_descriptor_not_found() {
     let mut client = GrancClient::new(reflection_service());
 
+    // "echo.GhostService" does not exist in the registered descriptors.
+    // The reflection client should fail to find the symbol, resulting in a ResolutionError.
     let err = client
-        .get_message_descriptor("echo.GhostMessage")
+        .get_descriptor_by_symbol("echo.GhostService")
         .await
         .unwrap_err();
 
     assert!(matches!(
         err,
-        granc_core::client::GetMessageDescriptorError::MessageNotFound(_)
+        granc_core::client::GetDescriptorError::NotFound(_)
     ));
 }

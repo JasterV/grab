@@ -11,9 +11,9 @@ mod cli;
 mod formatter;
 
 use clap::Parser;
-use cli::{Cli, Commands, DescribeCommands};
+use cli::{Cli, Commands};
 use formatter::FormattedString;
-use granc_core::client::{DynamicRequest, DynamicResponse, GrancClient};
+use granc_core::client::{Descriptor, DynamicRequest, DynamicResponse, GrancClient};
 use std::process;
 
 use crate::formatter::ServiceList;
@@ -34,13 +34,8 @@ async fn main() {
             let (service, method) = endpoint;
             run_call(url, service, method, body, headers, file_descriptor_set).await;
         }
-        Commands::List { sub } => match sub {
-            cli::ListCommands::Services => list_services(&url).await,
-        },
-        Commands::Describe { sub } => match sub {
-            DescribeCommands::Service { service } => describe_service(&url, &service).await,
-            DescribeCommands::Message { message } => describe_message(&url, &message).await,
-        },
+        Commands::List => list_services(&url).await,
+        Commands::Describe { symbol } => describe_type(&url, &symbol).await,
     }
 }
 
@@ -68,25 +63,21 @@ async fn list_services(url: &str) {
     }
 }
 
-async fn describe_service(url: &str, service_name: &str) {
+async fn describe_type(url: &str, symbol: &str) {
     let mut client = connect_or_exit(url).await;
 
-    match client.get_service_descriptor(service_name).await {
-        Ok(descriptor) => println!("{}", FormattedString::from(descriptor)),
-        Err(e) => {
-            eprintln!("{}", FormattedString::from(e));
-            process::exit(1);
+    match client.get_descriptor_by_symbol(symbol).await {
+        Ok(Descriptor::MessageDescriptor(descriptor)) => {
+            println!("{}", FormattedString::from(descriptor))
         }
-    }
-}
 
-async fn describe_message(url: &str, message_name: &str) {
-    let mut client = connect_or_exit(url).await;
-
-    match client.get_message_descriptor(message_name).await {
-        Ok(descriptor) => {
-            println!("{}", FormattedString::from(descriptor));
+        Ok(Descriptor::ServiceDescriptor(descriptor)) => {
+            println!("{}", FormattedString::from(descriptor))
         }
+        Ok(Descriptor::EnumDescriptor(descriptor)) => {
+            println!("{}", FormattedString::from(descriptor))
+        }
+
         Err(e) => {
             eprintln!("{}", FormattedString::from(e));
             process::exit(1);

@@ -43,38 +43,13 @@ pub enum Commands {
         file_descriptor_set: Option<PathBuf>,
     },
 
-    /// List available services or other resources
-    List {
-        #[command(subcommand)]
-        sub: ListCommands,
-    },
+    /// List available services
+    List,
 
-    /// Describe a service or a message in details
+    /// Describe a service, message or enum passing the full path
     Describe {
-        #[command(subcommand)]
-        sub: DescribeCommands,
-    },
-}
-
-#[derive(Subcommand)]
-pub enum ListCommands {
-    /// List all services available on the server
-    ///
-    /// Fetches the list of exposed services from the server's reflection service.
-    Services,
-}
-
-#[derive(Subcommand)]
-pub enum DescribeCommands {
-    /// Describe a specific service (list its methods)
-    Service {
-        /// Fully qualified service name (e.g. my.package.Service)
-        service: String,
-    },
-    /// Describe a specific message (show definition and dependencies)
-    Message {
-        /// Fully qualified message name (e.g. my.package.Message)
-        message: String,
+        /// Fully qualified name (e.g. my.package.Service)
+        symbol: String,
     },
 }
 

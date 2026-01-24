@@ -39,7 +39,9 @@ use crate::{
 };
 use futures_util::Stream;
 use http_body::Body as HttpBody;
-use prost_reflect::{DescriptorError, DescriptorPool, MessageDescriptor, ServiceDescriptor};
+use prost_reflect::{
+    DescriptorError, DescriptorPool, EnumDescriptor, MessageDescriptor, ServiceDescriptor,
+};
 use tokio_stream::StreamExt;
 use tonic::{
     Code,
@@ -61,23 +63,13 @@ pub enum ListServicesError {
 }
 
 #[derive(Debug, thiserror::Error)]
-pub enum GetServiceDescriptorError {
+pub enum GetDescriptorError {
     #[error("Reflection resolution failed: '{0}'")]
     ReflectionResolve(#[from] ReflectionResolveError),
     #[error("Failed to decode file descriptor set: '{0}'")]
     DescriptorError(#[from] DescriptorError),
-    #[error("Service '{0}' not found")]
-    ServiceNotFound(String),
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum GetMessageDescriptorError {
-    #[error("Reflection resolution failed: '{0}'")]
-    ReflectionResolve(#[from] ReflectionResolveError),
-    #[error("Failed to decode file descriptor set: '{0}'")]
-    DescriptorError(#[from] DescriptorError),
-    #[error("Message '{0}' not found")]
-    MessageNotFound(String),
+    #[error("Descriptor at path '{0}' not found")]
+    NotFound(String),
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -124,6 +116,37 @@ pub enum DynamicResponse {
     Unary(Result<serde_json::Value, tonic::Status>),
     /// A stream of response messages (for Server Streaming and Bidirectional calls).
     Streaming(Result<Vec<Result<serde_json::Value, tonic::Status>>, tonic::Status>),
+}
+
+/// A file descriptor of either a message, service or enum
+#[derive(Debug, Clone)]
+pub enum Descriptor {
+    MessageDescriptor(MessageDescriptor),
+    ServiceDescriptor(ServiceDescriptor),
+    EnumDescriptor(EnumDescriptor),
+}
+
+impl Descriptor {
+    pub fn message_descriptor(&self) -> Option<&MessageDescriptor> {
+        match self {
+            Descriptor::MessageDescriptor(message_descriptor) => Some(message_descriptor),
+            _ => None,
+        }
+    }
+
+    pub fn service_descriptor(&self) -> Option<&ServiceDescriptor> {
+        match self {
+            Descriptor::ServiceDescriptor(service_descriptor) => Some(service_descriptor),
+            _ => None,
+        }
+    }
+
+    pub fn enum_descriptor(&self) -> Option<&EnumDescriptor> {
+        match self {
+            Descriptor::EnumDescriptor(enum_descriptor) => Some(enum_descriptor),
+            _ => None,
+        }
+    }
 }
 
 /// The main client for interacting with gRPC servers dynamically.
@@ -189,70 +212,47 @@ where
             .map_err(Into::into)
     }
 
-    /// Resolves and fetches the [`ServiceDescriptor`] for a specific service name using reflection.
-    ///
-    /// This allows inspecting the service's methods, inputs, and outputs at runtime.
+    /// Resolves and fetches the [`Descriptor`] for a specific symbol using reflection.
     ///
     /// # Arguments
     ///
-    /// * `service_name` - The fully qualified name of the service (e.g., `my.package.Service`).
+    /// * `symbol` - The fully qualified name of the type (e.g., `my.package.Service`).
     ///
     /// # Errors
     ///
-    /// Returns an error if the service cannot be found via reflection or if the resolved descriptor set is invalid.
-    pub async fn get_service_descriptor(
+    /// Returns an error if the descriptor cannot be found via reflection or if the resolved descriptor set is invalid.
+    pub async fn get_descriptor_by_symbol(
         &mut self,
-        service_name: &str,
-    ) -> Result<ServiceDescriptor, GetServiceDescriptorError> {
+        symbol: &str,
+    ) -> Result<Descriptor, GetDescriptorError> {
         let fd_set = self
             .reflection_client
-            .file_descriptor_set_by_symbol(service_name)
+            .file_descriptor_set_by_symbol(symbol)
             .await
             .map_err(|err| match err {
                 ReflectionResolveError::ServerStreamFailure(status)
                     if status.code() == Code::NotFound =>
                 {
-                    GetServiceDescriptorError::ServiceNotFound(service_name.to_string())
+                    GetDescriptorError::NotFound(symbol.to_string())
                 }
-                err => GetServiceDescriptorError::ReflectionResolve(err),
+                err => GetDescriptorError::ReflectionResolve(err),
             })?;
 
-        DescriptorPool::from_file_descriptor_set(fd_set)?
-            .get_service_by_name(service_name)
-            .ok_or_else(|| GetServiceDescriptorError::ServiceNotFound(service_name.to_string()))
-    }
+        let pool = DescriptorPool::from_file_descriptor_set(fd_set)?;
 
-    /// Resolves and fetches the [`MessageDescriptor`] for a specific message name using reflection.
-    ///
-    /// This allows inspecting the message's fields and types at runtime.
-    ///
-    /// # Arguments
-    ///
-    /// * `message_name` - The fully qualified name of the message (e.g., `my.package.HelloRequest`).
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the message cannot be found via reflection or if the resolved descriptor set is invalid.
-    pub async fn get_message_descriptor(
-        &mut self,
-        message_name: &str,
-    ) -> Result<MessageDescriptor, GetMessageDescriptorError> {
-        let fd_set = self
-            .reflection_client
-            .file_descriptor_set_by_symbol(message_name)
-            .await
-            .map_err(|err| match err {
-                ReflectionResolveError::ServerStreamFailure(status)
-                    if status.code() == Code::NotFound =>
-                {
-                    GetMessageDescriptorError::MessageNotFound(message_name.to_string())
-                }
-                err => GetMessageDescriptorError::ReflectionResolve(err),
-            })?;
+        if let Some(descriptor) = pool.get_service_by_name(symbol) {
+            return Ok(Descriptor::ServiceDescriptor(descriptor));
+        }
 
-        DescriptorPool::from_file_descriptor_set(fd_set)?
-            .get_message_by_name(message_name)
-            .ok_or_else(|| GetMessageDescriptorError::MessageNotFound(message_name.to_string()))
+        if let Some(descriptor) = pool.get_message_by_name(symbol) {
+            return Ok(Descriptor::MessageDescriptor(descriptor));
+        }
+
+        if let Some(descriptor) = pool.get_enum_by_name(symbol) {
+            return Ok(Descriptor::EnumDescriptor(descriptor));
+        }
+
+        Err(GetDescriptorError::NotFound(symbol.to_string()))
     }
 
     /// Executes a dynamic gRPC request.

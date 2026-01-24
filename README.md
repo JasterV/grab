@@ -98,24 +98,24 @@ granc http://localhost:50051 call --body '{"name": "Ferris"}' helloworld.Greeter
 
 This requires the server to have the [`grpc.reflection.v1`](https://github.com/grpc/grpc-proto/blob/master/grpc/reflection/v1/reflection.proto) service enabled.
 
-#### 2. `list services` (Discovery) (Server reflection required)
+#### 2. `list` (Service Discovery) (Server reflection required)
 
 Lists all services exposed by the server.
 
 ```bash
-granc http://localhost:50051 list services
+granc http://localhost:50051 list
 ```
 
 #### 3. `describe` (Introspection) (Server reflection required)
 
-Inspects services, methods, or messages and prints their Protobuf definition.
+Inspects services, messages or enums and prints their Protobuf definition.
 
 **Describe Service:**
 
 Describe in detail all methods of a service.
 
 ```bash
-granc http://localhost:50051 describe service my.package.Greeter
+granc http://localhost:50051 describe my.package.Greeter
 ```
 
 **Describe Message:**
@@ -123,7 +123,7 @@ granc http://localhost:50051 describe service my.package.Greeter
 Shows the fields of a specific message type.
 
 ```bash
-granc http://localhost:50051 describe message my.package.HelloRequest
+granc http://localhost:50051 describe my.package.HelloRequest
 ```
 
 ## 🔮 Roadmap

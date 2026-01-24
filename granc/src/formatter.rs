@@ -1,9 +1,6 @@
 use colored::*;
 use granc_core::{
-    client::{
-        ClientConnectError, DynamicCallError, GetMessageDescriptorError, GetServiceDescriptorError,
-        ListServicesError,
-    },
+    client::{ClientConnectError, DynamicCallError, GetDescriptorError, ListServicesError},
     prost_reflect::{EnumDescriptor, Kind, MessageDescriptor, MethodDescriptor, ServiceDescriptor},
 };
 use tonic::Status;
@@ -66,21 +63,11 @@ impl From<ListServicesError> for FormattedString {
     }
 }
 
-impl From<GetServiceDescriptorError> for FormattedString {
-    fn from(err: GetServiceDescriptorError) -> Self {
+impl From<GetDescriptorError> for FormattedString {
+    fn from(err: GetDescriptorError) -> Self {
         FormattedString(format!(
             "{}\n\n'{}'",
-            "Service Lookup Failed:".red().bold(),
-            err
-        ))
-    }
-}
-
-impl From<GetMessageDescriptorError> for FormattedString {
-    fn from(err: GetMessageDescriptorError) -> Self {
-        FormattedString(format!(
-            "{}\n\n'{}'",
-            "Message Lookup Failed:".red().bold(),
+            "Symbol Lookup Failed:".red().bold(),
             err
         ))
     }
