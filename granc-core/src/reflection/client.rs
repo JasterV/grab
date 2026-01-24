@@ -1,15 +1,21 @@
 //! # Reflection Client
 //!
-//! A client implementation for `grpc.reflection.v1`.
+//! This module provides a client implementation for the gRPC Server Reflection Protocol (`grpc.reflection.v1`).
 //!
-//! This client is responsible for building a complete `FileDescriptorSet` by querying
-//! a server that supports reflection. It handles the complexity of dependency management by inspecting
-//! imports and recursively fetching missing files until the entire schema tree for a
-//! requested symbol is resolved.
+//! The [`ReflectionClient`] allows `granc` to inspect the schema of a running gRPC server at runtime.
+//! It is capable of:
+//!
+//! 1. **Listing Services**: Querying the server for all exposed service names.
+//! 2. **Symbol Resolution**: Fetching the `FileDescriptorProto` for a specific symbol (Service or Message).
+//! 3. **Dependency Management**: Automatically identifying missing imports in a file descriptor and recursively
+//!    fetching them from the server to build a complete, self-contained `FileDescriptorSet`.
+//!
+//! This client is designed to be resilient and handles the recursive graph traversal required to reconstruct
+//! the full proto set from individual file descriptors.
 //!
 //! ## References
 //!
-//! * [gRPC Server Reflection Protocol](https://github.com/grpc/grpc/blob/master/doc/server-reflection.md)//!
+//! * [gRPC Server Reflection Protocol](https://github.com/grpc/grpc/blob/master/doc/server-reflection.md)
 use super::generated::reflection_v1::{
     ServerReflectionRequest, ServerReflectionResponse,
     server_reflection_client::ServerReflectionClient, server_reflection_request::MessageRequest,
@@ -26,6 +32,7 @@ use tokio_stream::wrappers::ReceiverStream;
 use tonic::transport::Channel;
 use tonic::{Streaming, client::GrpcService};
 
+/// Errors that can occur during reflection resolution.
 #[derive(Debug, thiserror::Error)]
 pub enum ReflectionResolveError {
     #[error(
@@ -57,7 +64,7 @@ pub enum ReflectionResolveError {
 // So we won't enforce it from the user.
 const EMPTY_HOST: &str = "";
 
-/// A generic client for the gRPC Server Reflection Protocol.
+/// A client for interacting with the gRPC Server Reflection Service.
 pub struct ReflectionClient<T = Channel> {
     client: ServerReflectionClient<T>,
 }
@@ -69,22 +76,31 @@ where
     S::ResponseBody: HttpBody<Data = tonic::codegen::Bytes> + Send + 'static,
     <S::ResponseBody as HttpBody>::Error: Into<BoxError> + Send,
 {
+    /// Creates a new `ReflectionClient` using the provided gRPC service (e.g., a `Channel`).
     pub fn new(channel: S) -> Self {
         let client = ServerReflectionClient::new(channel);
         Self { client }
     }
 
-    /// Asks the reflection service for the file containing the requested symbol (e.g., `my.package.MyService`).
+    /// Fetches the complete `FileDescriptorSet` containing the definition for the given symbol.
     ///
-    /// **Recursive Resolution**:
-    ///    - The server returns a `FileDescriptorProto`.
-    ///    - The client inspects the imports (dependencies) of that file.
-    ///    - It recursively requests any missing dependencies until the full `FileDescriptorSet` is built.
+    /// This method performs a recursive lookup:
+    /// 1. It asks the server for the file defining `service_name`.
+    /// 2. It parses the response and identifies any imported files (dependencies).
+    /// 3. It recursively requests those dependencies if they haven't been fetched yet.
+    /// 4. It aggregates all fetched files into a single `FileDescriptorSet`.
+    ///
+    /// This ensures that the returned set is self-contained and can be used to build a
+    /// `prost_reflect::DescriptorPool`.
+    ///
+    /// # Arguments
+    ///
+    /// * `service_name` - The fully qualified symbol name to resolve (e.g., `my.package.MyService`, `my.package.Message`).
     ///
     /// # Returns
     ///
-    /// * `Ok(fd_set)` - Successful reflection requests execution.
-    /// * `Err(ReflectionResolveError)` - Failed to request file descriptors to the reflection service.
+    /// * `Ok(FileDescriptorSet)` - A set containing the file defining the symbol and all its transitive dependencies.
+    /// * `Err(ReflectionResolveError)` - If the symbol is not found, the server doesn't support reflection, or a protocol error occurs.
     pub async fn file_descriptor_set_by_symbol(
         &mut self,
         service_name: &str,
@@ -123,6 +139,13 @@ where
     }
 
     /// Lists all services exposed by the server.
+    ///
+    /// Sends a `ListServices` request to the reflection endpoint.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Vec<String>)` - A string list where each string is a fully qualified service name (e.g., `grpc.reflection.v1.ServerReflection`, `helloworld.Greeter`).
+    /// * `Err(ReflectionResolveError)` - If the server doesn't support reflection or a protocol error occurs.
     pub async fn list_services(&mut self) -> Result<Vec<String>, ReflectionResolveError> {
         let req = ServerReflectionRequest {
             host: EMPTY_HOST.to_string(),
