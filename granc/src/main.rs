@@ -70,14 +70,12 @@ async fn describe_type(url: &str, symbol: &str) {
         Ok(Descriptor::MessageDescriptor(descriptor)) => {
             println!("{}", FormattedString::from(descriptor))
         }
-
         Ok(Descriptor::ServiceDescriptor(descriptor)) => {
             println!("{}", FormattedString::from(descriptor))
         }
         Ok(Descriptor::EnumDescriptor(descriptor)) => {
             println!("{}", FormattedString::from(descriptor))
         }
-
         Err(e) => {
             eprintln!("{}", FormattedString::from(e));
             process::exit(1);
