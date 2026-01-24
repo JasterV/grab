@@ -49,7 +49,7 @@ pub enum Commands {
         sub: ListCommands,
     },
 
-    /// Describe a service or a method in detail
+    /// Describe a service or a message in details
     Describe {
         #[command(subcommand)]
         sub: DescribeCommands,
@@ -70,12 +70,6 @@ pub enum DescribeCommands {
     Service {
         /// Fully qualified service name (e.g. my.package.Service)
         service: String,
-    },
-    /// Describe a specific method (Show method definition)
-    Method {
-        /// Fully qualified method name (e.g. my.package.Service/Method)
-        #[arg(value_parser = parse_endpoint)]
-        method: (String, String),
     },
     /// Describe a specific message (show definition and dependencies)
     Message {

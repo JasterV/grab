@@ -39,10 +39,6 @@ async fn main() {
         },
         Commands::Describe { sub } => match sub {
             DescribeCommands::Service { service } => describe_service(&url, &service).await,
-            DescribeCommands::Method { method } => {
-                let (service, method_name) = method;
-                describe_method(&url, &service, &method_name).await
-            }
             DescribeCommands::Message { message } => describe_message(&url, &message).await,
         },
     }
@@ -76,21 +72,6 @@ async fn describe_service(url: &str, service_name: &str) {
     let mut client = connect_or_exit(url).await;
 
     match client.get_service_descriptor(service_name).await {
-        Ok(descriptor) => println!("{}", FormattedString::from(descriptor)),
-        Err(e) => {
-            eprintln!("{}", FormattedString::from(e));
-            process::exit(1);
-        }
-    }
-}
-
-async fn describe_method(url: &str, service_name: &str, method_name: &str) {
-    let mut client = connect_or_exit(url).await;
-
-    match client
-        .get_method_descriptor(service_name, method_name)
-        .await
-    {
         Ok(descriptor) => println!("{}", FormattedString::from(descriptor)),
         Err(e) => {
             eprintln!("{}", FormattedString::from(e));

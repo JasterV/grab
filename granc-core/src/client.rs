@@ -1,20 +1,7 @@
 //! # Granc Client
 //!
-//! This module implements the high-level logic for executing dynamic gRPC requests.
-//! It acts as the bridge between the user's intent (a JSON body and a method name)
-//! and the low-level gRPC transport.
-//!
-//! ## Responsibilities
-//!
-//! 1. **Schema Resolution**: It determines whether to use a provided `FileDescriptorSet`
-//!    or to fetch the schema dynamically using the [`crate::reflection::client::ReflectionClient`].
-//! 2. **Method Lookup**: It validates that the requested service and method exist within
-//!    the resolved schema.
-//! 3. **Dispatch**: It inspects the method descriptor to determine the correct gRPC access
-//!    pattern (Unary, Server Streaming, Client Streaming, or Bidirectional) and routes
-//!    the request accordingly.
-//! 4. **Input Adaptation**: It converts input JSON data into the appropriate stream format
-//!    required by the underlying transport.
+//! This module implements the high-level logic for executing dynamic gRPC requests
+//! and offers support for reflection operations if the server supports it.
 use crate::{
     BoxError,
     grpc::client::{GrpcClient, GrpcRequestError},
@@ -22,9 +9,7 @@ use crate::{
 };
 use futures_util::Stream;
 use http_body::Body as HttpBody;
-use prost_reflect::{
-    DescriptorError, DescriptorPool, MessageDescriptor, MethodDescriptor, ServiceDescriptor,
-};
+use prost_reflect::{DescriptorError, DescriptorPool, MessageDescriptor, ServiceDescriptor};
 use tokio_stream::StreamExt;
 use tonic::transport::{Channel, Endpoint};
 
@@ -53,18 +38,6 @@ pub enum GetServiceDescriptorError {
 }
 
 #[derive(Debug, thiserror::Error)]
-pub enum GetMethodDescriptorError {
-    #[error("Reflection resolution failed: '{0}'")]
-    ReflectionResolve(#[from] ReflectionResolveError),
-    #[error("Failed to decode file descriptor set: '{0}'")]
-    DescriptorError(#[from] DescriptorError),
-    #[error("Service '{0}' not found")]
-    ServiceNotFound(String),
-    #[error("Method '{0}' not found")]
-    MethodNotFound(String),
-}
-
-#[derive(Debug, thiserror::Error)]
 pub enum GetMessageDescriptorError {
     #[error("Reflection resolution failed: '{0}'")]
     ReflectionResolve(#[from] ReflectionResolveError),
@@ -78,9 +51,6 @@ pub enum GetMessageDescriptorError {
 pub enum DynamicCallError {
     #[error("Invalid input: '{0}'")]
     InvalidInput(String),
-
-    #[error("Failed to read descriptor file: '{0}'")]
-    Io(#[from] std::io::Error),
 
     #[error("Service '{0}' not found")]
     ServiceNotFound(String),
@@ -170,26 +140,6 @@ where
             .ok_or_else(|| GetServiceDescriptorError::ServiceNotFound(service_name.to_string()))
     }
 
-    /// Fetches the descriptor for a specific service using reflection.
-    /// This allows inspecting methods and types.
-    pub async fn get_method_descriptor(
-        &mut self,
-        service_name: &str,
-        method_name: &str,
-    ) -> Result<MethodDescriptor, GetMethodDescriptorError> {
-        let fd_set = self
-            .reflection_client
-            .file_descriptor_set_by_symbol(service_name)
-            .await?;
-
-        DescriptorPool::from_file_descriptor_set(fd_set)?
-            .get_service_by_name(service_name)
-            .ok_or_else(|| GetMethodDescriptorError::ServiceNotFound(service_name.to_string()))?
-            .methods()
-            .find(|m| m.name() == method_name)
-            .ok_or_else(|| GetMethodDescriptorError::MethodNotFound(method_name.to_string()))
-    }
-
     /// Fetches the descriptor for a specific message using reflection.
     pub async fn get_message_descriptor(
         &mut self,
@@ -205,6 +155,21 @@ where
             .ok_or_else(|| GetMessageDescriptorError::MessageNotFound(message_name.to_string()))
     }
 
+    /// This function implements the high-level logic for executing dynamic gRPC requests.
+    /// It acts as the bridge between the user's intent (a JSON body and a method name)
+    /// and the low-level gRPC transport.
+    ///
+    /// ## How it works
+    ///
+    /// 1. **Schema Resolution**: It determines whether to use a provided `FileDescriptorSet`
+    ///    or to fetch the schema dynamically using the [`crate::reflection::client::ReflectionClient`].
+    /// 2. **Method Lookup**: It validates that the requested service and method exist within
+    ///    the resolved schema.
+    /// 3. **Dispatch**: It inspects the method descriptor to determine the correct gRPC access
+    ///    pattern (Unary, Server Streaming, Client Streaming, or Bidirectional) and routes
+    ///    the request accordingly.
+    /// 4. **Input Adaptation**: It converts input JSON data into the appropriate stream format
+    ///    required by the underlying transport.
     pub async fn dynamic(
         &mut self,
         request: DynamicRequest,

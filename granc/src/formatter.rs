@@ -1,8 +1,8 @@
 use colored::*;
 use granc_core::{
     client::{
-        ClientConnectError, DynamicCallError, GetMessageDescriptorError, GetMethodDescriptorError,
-        GetServiceDescriptorError, ListServicesError,
+        ClientConnectError, DynamicCallError, GetMessageDescriptorError, GetServiceDescriptorError,
+        ListServicesError,
     },
     prost_reflect::{EnumDescriptor, Kind, MessageDescriptor, MethodDescriptor, ServiceDescriptor},
 };
@@ -71,16 +71,6 @@ impl From<GetServiceDescriptorError> for FormattedString {
         FormattedString(format!(
             "{}\n\n'{}'",
             "Service Lookup Failed:".red().bold(),
-            err
-        ))
-    }
-}
-
-impl From<GetMethodDescriptorError> for FormattedString {
-    fn from(err: GetMethodDescriptorError) -> Self {
-        FormattedString(format!(
-            "{}\n\n'{}'",
-            "Method Lookup Failed:".red().bold(),
             err
         ))
     }

@@ -8,27 +8,17 @@
 
 Instead of strictly typed Rust structs, this library bridges standard `serde_json::Value` payloads directly to Protobuf binary wire format at runtime.
 
-## 📦 Installation
-
-Add this to your `Cargo.toml`:
-
-```toml
-[dependencies]
-granc_core = "0.2.3"
-tokio = { version = "1", features = ["full"] }
-serde_json = "1"
-```
-
 ## 🚀 High-Level Usage
 
-The primary entry point is the [`GrancClient`]. It acts as an orchestrator that:
+The primary entry point is the [`GrancClient`]. It acts as an orchestrator that connects to a gRPC server and provides methods for both executing requests and inspecting the server's schema.
 
-1. Connects to a gRPC server.
-2. Resolves the schema (either from a local file or via Server Reflection).
-3. Determines the method type (Unary, Server Streaming, etc.).
-4. Execute the request using JSON.
+### 1. Making a Dynamic Call
 
-### Example: Making a Dynamic Call
+The `dynamic` method handles the full request lifecycle:
+
+1. Resolves the schema (either from a local file or via Server Reflection).
+2. Determines the method type (Unary, Server Streaming, etc.).
+3. Executes the request using JSON.
 
 ```rust
 use granc_core::client::{GrancClient, DynamicRequest, DynamicResponse};
@@ -72,6 +62,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 ```
 
+### 2. Schema Introspection
+
+`GrancClient` exposes several methods to inspect the server's available services and types using reflection.
+
+```rust
+// List all services exposed by the server
+let services = client.list_services().await?;
+println!("Available Services: {:?}", services);
+
+// Get the descriptor for a specific service
+let service_desc = client.get_service_descriptor("helloworld.Greeter").await?;
+println!("Found service: {}", service_desc.name());
+
+// Get the descriptor for a specific message type
+let message_desc = client.get_message_descriptor("helloworld.HelloRequest").await?;
+println!("Message fields: {:?}", message_desc.fields().map(|f| f.name()).collect::<Vec<_>>());
+
+```
+
 ## 🛠️ Internal Components
 
 We expose the internal building blocks of `granc` for developers who need more granular control or want to build their own tools on top of our dynamic transport layer.
@@ -110,13 +119,19 @@ The magic behind the dynamic serialization. This implementation of `tonic::codec
 A client for `grpc.reflection.v1`. It enables runtime schema discovery.
 
 The `ReflectionClient` is smart enough to handle dependencies. When you ask for a symbol (e.g., `my.package.Service`),
-it recursively fetches the file defining that symbol and **all** its transitive imports, building a complete `prost_types::FileDescriptorSet` ready for use.
+it recursively fetches the file defining that symbol and **all** its transitive imports, building a complete `prost_types::FileDescriptorSet` ready for use. It also supports listing available services.
 
 ```rust
 use granc_core::reflection::client::ReflectionClient;
 
 let mut reflection = ReflectionClient::new(channel);
+
+// List services
+let services = reflection.list_services().await?;
+
+// Fetch full schema for a symbol
 let fd_set = reflection.file_descriptor_set_by_symbol("my.package.Service").await?;
+
 ```
 
 You can then build a `prost_reflect::DescriptorPool` with the returned `prost_types::FileDescriptorSet` to be able to inspect in detail the descriptor.
