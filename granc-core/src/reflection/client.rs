@@ -95,7 +95,7 @@ where
     ///
     /// # Arguments
     ///
-    /// * `service_name` - The fully qualified symbol name to resolve (e.g., `my.package.MyService`, `my.package.Message`).
+    /// * `symbol` - The fully qualified symbol name to resolve (e.g., `my.package.MyService`, `my.package.Message`).
     ///
     /// # Returns
     ///
@@ -103,7 +103,7 @@ where
     /// * `Err(ReflectionResolveError)` - If the symbol is not found, the server doesn't support reflection, or a protocol error occurs.
     pub async fn file_descriptor_set_by_symbol(
         &mut self,
-        service_name: &str,
+        symbol: &str,
     ) -> Result<FileDescriptorSet, ReflectionResolveError> {
         // Initialize Stream
         let (tx, rx) = mpsc::channel(100);
@@ -118,9 +118,7 @@ where
         // Send Initial Request
         let req = ServerReflectionRequest {
             host: EMPTY_HOST.to_string(),
-            message_request: Some(MessageRequest::FileContainingSymbol(
-                service_name.to_string(),
-            )),
+            message_request: Some(MessageRequest::FileContainingSymbol(symbol.to_string())),
         };
 
         tx.send(req)
