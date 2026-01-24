@@ -2,8 +2,19 @@ use echo_service::EchoServiceServer;
 use echo_service::FILE_DESCRIPTOR_SET;
 use echo_service_impl::EchoServiceImpl;
 use granc_core::client::{DynamicRequest, DynamicResponse, GrancClient};
+use tonic_reflection::server::v1::ServerReflectionServer;
 
 mod echo_service_impl;
+
+/// Sets up a GrancClient connected to a standalone Reflection Service.
+/// This service is configured with the `echo-service` descriptors.
+fn reflection_service()
+-> ServerReflectionServer<impl tonic_reflection::server::v1::ServerReflection> {
+    tonic_reflection::server::Builder::configure()
+        .register_encoded_file_descriptor_set(FILE_DESCRIPTOR_SET)
+        .build_v1()
+        .expect("Failed to setup Reflection Service")
+}
 
 #[tokio::test]
 async fn test_unary() {
@@ -125,4 +136,91 @@ async fn test_bidirectional_streaming() {
         }
         _ => panic!("Received unary response for bidirectional streaming request"),
     };
+}
+
+#[tokio::test]
+async fn test_list_services_success() {
+    let mut client = GrancClient::new(reflection_service());
+
+    let services = client
+        .list_services()
+        .await
+        .expect("Failed to list services");
+
+    // We expect "echo.EchoService" because we registered it.
+    // The list usually also includes the reflection service itself ("grpc.reflection.v1.ServerReflection").
+    assert!(
+        services.contains(&"echo.EchoService".to_string()),
+        "Services list did not contain 'echo.EchoService'. Found: {:?}",
+        services
+    );
+}
+
+#[tokio::test]
+async fn test_get_service_descriptor_success() {
+    let mut client = GrancClient::new(reflection_service());
+
+    let desc = client
+        .get_service_descriptor("echo.EchoService")
+        .await
+        .expect("Failed to get service descriptor");
+
+    assert_eq!(desc.name(), "EchoService");
+    assert_eq!(desc.full_name(), "echo.EchoService");
+
+    // Verify methods are present
+    let method_names: Vec<String> = desc.methods().map(|m| m.name().to_string()).collect();
+    assert!(method_names.contains(&"UnaryEcho".to_string()));
+    assert!(method_names.contains(&"ServerStreamingEcho".to_string()));
+    assert!(method_names.contains(&"ClientStreamingEcho".to_string()));
+    assert!(method_names.contains(&"BidirectionalEcho".to_string()));
+}
+
+#[tokio::test]
+async fn test_get_service_descriptor_not_found() {
+    let mut client = GrancClient::new(reflection_service());
+
+    // "echo.GhostService" does not exist in the registered descriptors.
+    // The reflection client should fail to find the symbol, resulting in a ResolutionError.
+    let err = client
+        .get_service_descriptor("echo.GhostService")
+        .await
+        .unwrap_err();
+
+    assert!(matches!(
+        err,
+        granc_core::client::GetServiceDescriptorError::ServiceNotFound(_)
+    ));
+}
+
+#[tokio::test]
+async fn test_get_message_descriptor_success() {
+    let mut client = GrancClient::new(reflection_service());
+
+    let desc = client
+        .get_message_descriptor("echo.EchoRequest")
+        .await
+        .expect("Failed to get message descriptor");
+
+    assert_eq!(desc.name(), "EchoRequest");
+    assert_eq!(desc.full_name(), "echo.EchoRequest");
+
+    // Verify fields
+    let fields: Vec<String> = desc.fields().map(|f| f.name().to_string()).collect();
+    assert!(fields.contains(&"message".to_string()));
+}
+
+#[tokio::test]
+async fn test_get_message_descriptor_not_found() {
+    let mut client = GrancClient::new(reflection_service());
+
+    let err = client
+        .get_message_descriptor("echo.GhostMessage")
+        .await
+        .unwrap_err();
+
+    assert!(matches!(
+        err,
+        granc_core::client::GetMessageDescriptorError::MessageNotFound(_)
+    ));
 }

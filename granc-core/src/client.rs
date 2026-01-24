@@ -41,7 +41,10 @@ use futures_util::Stream;
 use http_body::Body as HttpBody;
 use prost_reflect::{DescriptorError, DescriptorPool, MessageDescriptor, ServiceDescriptor};
 use tokio_stream::StreamExt;
-use tonic::transport::{Channel, Endpoint};
+use tonic::{
+    Code,
+    transport::{Channel, Endpoint},
+};
 
 #[derive(Debug, thiserror::Error)]
 pub enum ClientConnectError {
@@ -204,7 +207,15 @@ where
         let fd_set = self
             .reflection_client
             .file_descriptor_set_by_symbol(service_name)
-            .await?;
+            .await
+            .map_err(|err| match err {
+                ReflectionResolveError::ServerStreamFailure(status)
+                    if status.code() == Code::NotFound =>
+                {
+                    GetServiceDescriptorError::ServiceNotFound(service_name.to_string())
+                }
+                err => GetServiceDescriptorError::ReflectionResolve(err),
+            })?;
 
         DescriptorPool::from_file_descriptor_set(fd_set)?
             .get_service_by_name(service_name)
@@ -229,7 +240,15 @@ where
         let fd_set = self
             .reflection_client
             .file_descriptor_set_by_symbol(message_name)
-            .await?;
+            .await
+            .map_err(|err| match err {
+                ReflectionResolveError::ServerStreamFailure(status)
+                    if status.code() == Code::NotFound =>
+                {
+                    GetMessageDescriptorError::MessageNotFound(message_name.to_string())
+                }
+                err => GetMessageDescriptorError::ReflectionResolve(err),
+            })?;
 
         DescriptorPool::from_file_descriptor_set(fd_set)?
             .get_message_by_name(message_name)
