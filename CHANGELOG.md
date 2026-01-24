@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## `granc` - [0.5.0](https://github.com/JasterV/granc/compare/granc-v0.2.4...granc-v0.5.0) - 2026-01-24
+
+### Added
+
+- **Introspection Commands**:
+  - `list`: Lists all services available on the server (requires reflection).
+  - `describe`: Lists all methods within a specific service, prints the Protobuf definition of a message type or show all the variants of an enum.
+- **Formatted Output**: Added colored output for Protobuf definitions, JSON responses, and error messages.
+
+### Changed
+
+- **[BREAKING] New CLI Structure**: The CLI now enforces a `granc <URL> <COMMAND>` structure.
+  - Previous implicit calls are now explicit: `granc http://... call <ENDPOINT> ...`.
+  - The URL is now a global positional argument required for all commands.
+
+## `granc_core` - [0.4.0](https://github.com/JasterV/granc/compare/granc_core-v0.3.1...granc_core-v0.4.0) - 2026-01-24
+
+### Added
+
+- **Introspection APIs**: Added `list_services` and `get_descriptor_by_symbol` to `GrancClient`.
+- **Reflection Support**: Updated `ReflectionClient` to support the `ListServices` reflection method.
+
+### Changed
+
+- **Error Handling Refactor**: Overhauled error types to be more specific per method (`GetDescriptoError`, `ListServicesError`) and reduced internal duplication.
+
 ## `granc` - [0.4.0](https://github.com/JasterV/granc/compare/granc-v0.2.4...granc-v0.4.0) - 2026-01-22
 
 - Made a mistake publishing `granc 0.3` and introduced bugs, `granc 0.4` fixes them and its the first working version after `0.2.4`.
