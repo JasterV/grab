@@ -48,6 +48,7 @@ pub enum GrpcRequestError {
 }
 
 /// A generic client for the gRPC Server Reflection Protocol.
+#[derive(Debug, Clone)]
 pub struct GrpcClient<S = Channel> {
     client: tonic::client::Grpc<S>,
 }

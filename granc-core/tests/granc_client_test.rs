@@ -19,7 +19,6 @@ async fn test_unary() {
     let payload = serde_json::json!({ "message": "hello" });
 
     let request = DynamicRequest {
-        file_descriptor_set: Some(FILE_DESCRIPTOR_SET.to_vec()),
         body: payload.clone(),
         headers: vec![],
         service: "echo.EchoService".to_string(),

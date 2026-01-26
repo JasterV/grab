@@ -6,6 +6,7 @@ use tokio::sync::mpsc;
 use tokio_stream::{StreamExt, wrappers::ReceiverStream};
 use tonic::{Request, Response, Status, Streaming};
 
+#[derive(Debug)]
 pub struct EchoServiceImpl;
 
 #[tonic::async_trait]
