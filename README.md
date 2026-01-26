@@ -13,14 +13,16 @@ It allows you to make gRPC calls to any server using simple JSON payloads, witho
 
 It is heavily inspired by tools like `grpcurl` but built to leverage the safety and performance of the Rust ecosystem (Tonic + Prost).
 
+
 ## 🚀 Features
 
 * **Dynamic Encoding/Decoding**: Transcodes JSON to Protobuf (and vice versa) on the fly using `prost-reflect`.
-* **Smart Dispatch**: Automatically detects if a call is Unary, Server Streaming, Client Streaming, or Bidirectional based on the descriptor.
-* **Server Reflection**: Can fetch schemas directly from the server, removing the need to pass a local file descriptor set file (`.bin` or `.pb`).
 * **Metadata Support**: Easily attach custom headers (authorization, tracing) to your requests.
 * **Fast Fail Validation**: Validates your JSON *before* hitting the network.
-* **Introspection Tools**: Commands to list services and describe services/messages.
+* **Smart Dispatch**: Automatically detects if a call is Unary, Server Streaming, Client Streaming, or Bidirectional based on the descriptor.
+* **Server Reflection**: Can fetch schemas directly from the server, removing the need to pass a local file descriptor set file (`.bin` or `.pb`).
+* **Introspection Tools**: Commands to list services and describe services, messages, and enums.
+  * **Local Introspection**: In addition to making network requests, Granc can also be used as a local introspection tool for file descriptor binary files. You can load a local `.bin` file to inspect services, messages, and enums without needing to fetch the schema from a server.
 * **Zero Compilation Dependencies**: Does not require generating Rust code for your protos. Just point to a descriptor file.
 * **Tonic 0.14**: Built on the latest stable Rust gRPC stack.
 
@@ -28,6 +30,7 @@ It is heavily inspired by tools like `grpcurl` but built to leverage the safety 
 
 ```bash
 cargo install --locked granc
+
 ```
 
 ## 🛠️ Prerequisites
@@ -48,6 +51,7 @@ protoc \
     --descriptor_set_out=descriptor.bin \
     --proto_path=. \
     my_service.proto
+
 ```
 
 > **Note**: The `--include_imports` flag is crucial. It ensures that types defined in imported files (like `google/protobuf/timestamp.proto`) are available for reflection.
@@ -57,7 +61,8 @@ protoc \
 **Syntax:**
 
 ```bash
-granc <URL> <COMMAND> [ARGS]
+granc <URL> [OPTIONS] <COMMAND> [ARGS]
+
 ```
 
 ### Global Arguments
@@ -65,6 +70,7 @@ granc <URL> <COMMAND> [ARGS]
 | Argument | Description | Required |
 | --- | --- | --- |
 | `<URL>` | Server address (e.g., `http://[::1]:50051`). Must be the first argument. | **Yes** |
+| `--file-descriptor-set` | Path to the binary FileDescriptorSet (`.bin`). If omitted, Granc attempts to use Server Reflection. | No |
 
 ### Commands
 
@@ -81,49 +87,76 @@ granc http://localhost:50051 call <ENDPOINT> --body <JSON> [OPTIONS]
 | `<ENDPOINT>` | Fully qualified method name (e.g., `my.package.Service/Method`). | **Yes** |
 | `--body` | The request body in JSON format. Object `{}` for unary, Array `[]` for streaming. | **Yes** |
 | `--header`, `-H` | Custom header `key:value`. Can be used multiple times. | No |
-| `--file-descriptor-set` | Path to the binary FileDescriptorSet (`.bin`) if not using reflection. | No |
 
-##### JSON Body Format
-
-* **Unary / Server Streaming**: Provide a single JSON object `{ ... }`.
-* **Client / Bidirectional Streaming**: Provide a JSON array of objects `[ { ... }, { ... } ]`.
-
-##### Automatic Server Reflection
-
-If you omit the `--file-descriptor-set` flag, Granc will automatically attempt to connect to the server's reflection service to download the necessary schemas.
+**Example using Server Reflection:**
 
 ```bash
-granc http://localhost:50051 call --body '{"name": "Ferris"}' helloworld.Greeter/SayHello
+$ granc http://localhost:50051 call helloworld.Greeter/SayHello --body '{"name": "Ferris"}'
+
+{
+  "message": "Hello Ferris"
+}
+
 ```
 
-This requires the server to have the [`grpc.reflection.v1`](https://github.com/grpc/grpc-proto/blob/master/grpc/reflection/v1/reflection.proto) service enabled.
-
-#### 2. `list` (Service Discovery) (Server reflection required)
-
-Lists all services exposed by the server.
+**Example using a Local Descriptor File:**
 
 ```bash
-granc http://localhost:50051 list
+$ granc http://localhost:50051 \
+    --file-descriptor-set ./descriptors.bin \
+    call helloworld.Greeter/SayHello --body '{"name": "Ferris"}'
+
 ```
 
-#### 3. `describe` (Introspection) (Server reflection required)
+#### 2. `list` (Service Discovery)
 
-Inspects services, messages or enums and prints their Protobuf definition.
-
-**Describe Service:**
-
-Describe in detail all methods of a service.
+Lists all services exposed by the server (via reflection) or contained in the provided descriptor file.
 
 ```bash
-granc http://localhost:50051 describe my.package.Greeter
+$ granc http://localhost:50051 list
+
+Available Services:
+  - grpc.reflection.v1.ServerReflection
+  - helloworld.Greeter
 ```
 
-**Describe Message:**
-
-Shows the fields of a specific message type.
+**Listing services from a file:**
 
 ```bash
-granc http://localhost:50051 describe my.package.HelloRequest
+granc http://localhost:50051 --file-descriptor-set ./descriptors.bin list
+```
+
+#### 3. `describe` (Introspection)
+
+Inspects a specific symbol (Service, Message, or Enum) and prints its Protobuf definition in a colored, human-readable format.
+
+```bash
+$ granc http://localhost:50051 describe helloworld.Greeter
+
+service Greeter {
+  rpc SayHello(helloworld.HelloRequest) returns (helloworld.HelloReply);
+  rpc StreamHello(stream helloworld.HelloRequest) returns (stream helloworld.HelloReply);
+}
+```
+
+**Describing a Message using a Local File:**
+
+```bash
+granc http://localhost:50051 \
+    --file-descriptor-set ./descriptors.bin \
+    describe helloworld.HelloRequest
+```
+
+**Describing an Enum:**
+
+```bash
+$ granc http://localhost:50051 describe my.package.Status
+
+enum Status {
+  UNKNOWN = 0;
+  ACTIVE = 1;
+  INACTIVE = 2;
+}
 ```
 
 ## 🔮 Roadmap
@@ -138,7 +171,7 @@ The core logic of Granc is decoupled into a separate library crate, **`granc-cor
 
 If you want to build your own tools using the dynamic gRPC engine (e.g., for custom integration testing, proxies, or automation tools), you can depend on `granc-core` directly.
 
-* **Documentation & Usage**: See the [**`granc-core` README**](./granc-core/README.md) for examples on how to use the `GrancClient` programmatically.
+* **Documentation & Usage**: See the **[`granc-core` README](https://www.google.com/search?q=./granc-core/README.md)** for examples on how to use the `GrancClient` programmatically.
 * **Crate**: [`granc-core`](https://crates.io/crates/granc_core)
 
 ## ⚠️ Common Errors
@@ -164,6 +197,7 @@ Contributions are welcome! Please run the Makefile checks before submitting a PR
 
 ```bash
 cargo make ci # Checks formatting, lints, and runs tests
+
 ```
 
 ## 📄 License
