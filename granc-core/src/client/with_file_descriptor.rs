@@ -1,3 +1,9 @@
+//! # Client State: File Descriptor
+//!
+//! This module defines the `GrancClient` behavior when it is using a local, in-memory
+//! `DescriptorPool` (loaded from a file) to resolve schemas.
+//!
+//! In this state, the client does **not** use server reflection for schema lookup.
 use super::{Descriptor, DynamicRequest, DynamicResponse, GrancClient};
 use crate::{
     BoxError,
@@ -25,6 +31,7 @@ pub enum DynamicCallError {
     GrpcRequestError(#[from] GrpcRequestError),
 }
 
+/// The state for a client that uses a local `DescriptorPool` for schema resolution.
 #[derive(Debug, Clone)]
 pub struct WithFileDescriptor<S = Channel> {
     grpc_client: GrpcClient<S>,
@@ -51,6 +58,14 @@ where
     S::ResponseBody: HttpBody<Data = tonic::codegen::Bytes> + Send + 'static,
     <S::ResponseBody as HttpBody>::Error: Into<BoxError> + Send,
 {
+    /// Lists all services defined in the loaded `DescriptorPool`.
+    ///
+    /// Unlike the reflection client, this is a synchronous operation that returns
+    /// immediately from memory.
+    ///
+    /// # Returns
+    ///
+    /// A list of fully qualified service names (e.g. `helloworld.Greeter`).
     pub fn list_services(&mut self) -> Vec<String> {
         self.state
             .pool
@@ -59,6 +74,16 @@ where
             .collect()
     }
 
+    /// Looks up a specific symbol in the loaded `DescriptorPool`.
+    ///
+    /// # Arguments
+    ///
+    /// * `symbol` - The fully qualified name of the symbol (Service, Message, or Enum).
+    ///
+    /// # Returns
+    ///
+    /// * `Some(Descriptor)` - The resolved descriptor if found.
+    /// * `None` - If the symbol does not exist in the pool.
     pub fn get_descriptor_by_symbol(&mut self, symbol: &str) -> Option<Descriptor> {
         let pool = &self.state.pool;
 
@@ -77,6 +102,18 @@ where
         None
     }
 
+    /// Executes a dynamic gRPC request using the loaded `DescriptorPool`.
+    ///
+    /// It looks up the service and method definitions in the local pool, validates the JSON, and sends the request.
+    ///
+    /// # Arguments
+    ///
+    /// * `request` - The [`DynamicRequest`] containing the method to call and the JSON body.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(DynamicResponse)` - The result of the gRPC call.
+    /// * `Err(DynamicCallError)` - If the service/method is not in the pool, the JSON is invalid, or the call fails.
     pub async fn dynamic(
         &mut self,
         request: DynamicRequest,

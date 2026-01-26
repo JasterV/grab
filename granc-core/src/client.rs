@@ -1,9 +1,48 @@
+//! # Granc Client
+//!
+//! This module implements the high-level logic for executing dynamic gRPC requests.
+//!
+//! The [`GrancClient`] uses a **Typestate Pattern** to ensure safety and correctness regarding
+//! how the Protobuf schema is resolved. It has two possible states:
+//!
+//! 1. **[`with_server_reflection::WithServerReflection`]**: The default state. The client is connected
+//!    to a server and uses the gRPC Server Reflection Protocol (`grpc.reflection.v1`) to discover
+//!    services and fetch schemas on the fly.
+//! 2. **[`with_file_descriptor::WithFileDescriptor`]**: The client has been provided with a specific
+//!    binary `FileDescriptorSet` (e.g., loaded from a `.bin` file). In this state, reflection is
+//!    disabled, and all lookups are performed against the provided file.
+//!
+//! ## Example: State Transition
+//!
+//! ```rust,no_run
+//! use granc_core::client::GrancClient;
+//!
+//! # async fn run() -> Result<(), Box<dyn std::error::Error>> {
+//! // Connect (starts in Reflection state)
+//! let mut client_reflection = GrancClient::connect("http://localhost:50051").await?;
+//!
+//! // The API here is async
+//! let services = client_reflection.list_services().await?;
+//!
+//! // 2Transition to File Descriptor state
+//! let bytes = std::fs::read("descriptor.bin")?;
+//! let mut client_fd = client_reflection.with_file_descriptor(bytes)?;
+//!
+//! // Now operations use the local file and are sync
+//! let services = client_fd.list_services();
+//! # Ok(())
+//! # }
+//! ```
 pub mod with_file_descriptor;
 pub mod with_server_reflection;
 
 use prost_reflect::{EnumDescriptor, MessageDescriptor, ServiceDescriptor};
 use std::fmt::Debug;
 
+/// The main client for interacting with gRPC servers dynamically.
+///
+/// The generic parameter `T` represents the current state of the client, determining
+/// its capabilities and how it resolves Protobuf schemas.
 #[derive(Clone, Debug)]
 pub struct GrancClient<T> {
     state: T,
@@ -31,7 +70,10 @@ pub enum DynamicResponse {
     Streaming(Result<Vec<Result<serde_json::Value, tonic::Status>>, tonic::Status>),
 }
 
-/// A file descriptor of either a message, service or enum
+/// A generic wrapper for different types of Protobuf descriptors.
+///
+/// This enum allows the client to return a single type when resolving symbols,
+/// regardless of whether the symbol points to a Service, a Message, or an Enum.
 #[derive(Debug, Clone)]
 pub enum Descriptor {
     MessageDescriptor(MessageDescriptor),
@@ -40,6 +82,7 @@ pub enum Descriptor {
 }
 
 impl Descriptor {
+    /// Returns the inner [`MessageDescriptor`] if this variant is `MessageDescriptor`.
     pub fn message_descriptor(&self) -> Option<&MessageDescriptor> {
         match self {
             Descriptor::MessageDescriptor(message_descriptor) => Some(message_descriptor),
@@ -47,6 +90,7 @@ impl Descriptor {
         }
     }
 
+    /// Returns the inner [`ServiceDescriptor`] if this variant is `ServiceDescriptor`.
     pub fn service_descriptor(&self) -> Option<&ServiceDescriptor> {
         match self {
             Descriptor::ServiceDescriptor(service_descriptor) => Some(service_descriptor),
@@ -54,6 +98,7 @@ impl Descriptor {
         }
     }
 
+    /// Returns the inner [`EnumDescriptor`] if this variant is `EnumDescriptor`.
     pub fn enum_descriptor(&self) -> Option<&EnumDescriptor> {
         match self {
             Descriptor::EnumDescriptor(enum_descriptor) => Some(enum_descriptor),
