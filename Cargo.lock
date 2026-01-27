@@ -347,13 +347,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "granc-tools"
-version = "0.0.0"
-dependencies = [
- "tonic-prost-build",
-]
-
-[[package]]
 name = "granc_core"
 version = "0.4.0"
 dependencies = [

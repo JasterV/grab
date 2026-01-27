@@ -40,14 +40,3 @@ args = [
   "-D",
   "warnings",
 ]
-
-[tasks.generate-reflection-service]
-description = "Runs a binary that generates a reflection service client from the reflection proto definitions"
-command = "cargo"
-args = [
-  "run",
-  "--bin",
-  "generate-reflection-service",
-  "--features",
-  "gen-proto",
-]

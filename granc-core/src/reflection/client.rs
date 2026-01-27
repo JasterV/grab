@@ -16,11 +16,6 @@
 //! ## References
 //!
 //! * [gRPC Server Reflection Protocol](https://github.com/grpc/grpc/blob/master/doc/server-reflection.md)
-use super::generated::reflection_v1::{
-    ServerReflectionRequest, ServerReflectionResponse,
-    server_reflection_client::ServerReflectionClient, server_reflection_request::MessageRequest,
-    server_reflection_response::MessageResponse,
-};
 use crate::BoxError;
 use futures_util::stream::once;
 use http_body::Body as HttpBody;
@@ -31,6 +26,11 @@ use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 use tonic::transport::Channel;
 use tonic::{Streaming, client::GrpcService};
+use tonic_reflection::pb::v1::{
+    ServerReflectionRequest, ServerReflectionResponse,
+    server_reflection_client::ServerReflectionClient, server_reflection_request::MessageRequest,
+    server_reflection_response::MessageResponse,
+};
 
 /// Errors that can occur during reflection resolution.
 #[derive(Debug, thiserror::Error)]

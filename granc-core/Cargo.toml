@@ -30,8 +30,8 @@ tokio = { workspace = true, features = ["sync"] }
 tokio-stream = "0.1.18"
 tonic = { workspace = true }
 tonic-prost = { workspace = true }
+tonic-reflection = { workspace = true }
 
 [dev-dependencies]
 echo-service = { path = "../echo-service" }
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
-tonic-reflection = { workspace = true }
