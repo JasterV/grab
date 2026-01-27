@@ -1,10 +1,14 @@
 use echo_service::{EchoServiceServer, FILE_DESCRIPTOR_SET};
 use echo_service_impl::EchoServiceImpl;
-use granc_core::client::{Descriptor, DynamicRequest, DynamicResponse, GrancClient};
+use granc_core::client::{
+    Descriptor, DynamicRequest, DynamicResponse, GrancClient, with_file_descriptor,
+    with_server_reflection,
+};
+use granc_core::reflection::client::ReflectionResolveError;
 use std::net::SocketAddr;
 use tokio::net::TcpListener;
 use tokio_stream::wrappers::TcpListenerStream;
-use tonic::transport::Server;
+use tonic::{Code, transport::Server};
 
 mod echo_service_impl;
 
@@ -32,7 +36,7 @@ async fn spawn_server() -> SocketAddr {
 }
 
 #[tokio::test]
-async fn test_reflection_list_services() {
+async fn test_list_services() {
     let addr = spawn_server().await;
     let url = format!("http://{}", addr);
     let mut client = GrancClient::connect(&url).await.unwrap();
@@ -43,7 +47,7 @@ async fn test_reflection_list_services() {
 }
 
 #[tokio::test]
-async fn test_reflection_describe_descriptors() {
+async fn test_describe_descriptors() {
     let addr = spawn_server().await;
     let url = format!("http://{}", addr);
     let mut client = GrancClient::connect(&url).await.unwrap();
@@ -71,14 +75,25 @@ async fn test_reflection_describe_descriptors() {
     } else {
         panic!("Expected MessageDescriptor");
     }
-
-    // 3. Error Case: Non-existent symbol
-    let err = client.get_descriptor_by_symbol("echo.Ghost").await;
-    assert!(err.is_err());
 }
 
 #[tokio::test]
-async fn test_reflection_dynamic_calls() {
+async fn test_describe_error() {
+    let addr = spawn_server().await;
+    let url = format!("http://{}", addr);
+    let mut client = GrancClient::connect(&url).await.unwrap();
+
+    // Error Case: Non-existent symbol
+    let result = client.get_descriptor_by_symbol("echo.Ghost").await;
+
+    assert!(matches!(
+        result,
+        Err(with_server_reflection::GetDescriptorError::NotFound(name)) if name == "echo.Ghost"
+    ));
+}
+
+#[tokio::test]
+async fn test_dynamic_calls() {
     let addr = spawn_server().await;
     let url = format!("http://{}", addr);
     let mut client = GrancClient::connect(&url).await.unwrap();
@@ -147,41 +162,79 @@ async fn test_reflection_dynamic_calls() {
 }
 
 #[tokio::test]
-async fn test_reflection_error_cases() {
+async fn test_dynamic_error_cases() {
     let addr = spawn_server().await;
     let url = format!("http://{}", addr);
     let mut client = GrancClient::connect(&url).await.unwrap();
 
     // 1. Invalid Service Name
+    // The reflection client will try to fetch the schema for "echo.GhostService" and fail.
     let req = DynamicRequest {
         service: "echo.GhostService".to_string(),
         method: "UnaryEcho".to_string(),
         body: serde_json::json!({}),
         headers: vec![],
     };
-    assert!(client.dynamic(req).await.is_err());
+    let result = client.dynamic(req).await;
+
+    // We expect a ReflectionResolve error wrapping a ServerStreamFailure with Code::NotFound
+    assert!(matches!(
+        result,
+        Err(with_server_reflection::DynamicCallError::ReflectionResolve(
+            ReflectionResolveError::ServerStreamFailure(status)
+        )) if status.code() == Code::NotFound
+    ));
 
     // 2. Invalid Method Name
+    // The reflection will succeed for the Service, but then the method lookup will fail locally.
     let req = DynamicRequest {
         service: "echo.EchoService".to_string(),
         method: "GhostMethod".to_string(),
         body: serde_json::json!({}),
         headers: vec![],
     };
-    assert!(client.dynamic(req).await.is_err());
+    let result = client.dynamic(req).await;
 
-    // 3. Invalid JSON Body
+    // We expect the error to bubble up from the underlying WithFileDescriptor client
+    assert!(matches!(
+        result,
+        Err(with_server_reflection::DynamicCallError::DynamicCallError(
+            with_file_descriptor::DynamicCallError::MethodNotFound(name)
+        )) if name == "GhostMethod"
+    ));
+
+    // 3. Invalid JSON Structure (Streaming requires Array, Object provided)
+    // This triggers `DynamicCallError::InvalidInput` before the request is sent.
+    let req = DynamicRequest {
+        service: "echo.EchoService".to_string(),
+        method: "ClientStreamingEcho".to_string(),
+        body: serde_json::json!({ "message": "I should be an array" }),
+        headers: vec![],
+    };
+    let result = client.dynamic(req).await;
+
+    assert!(matches!(
+        result,
+        Err(with_server_reflection::DynamicCallError::DynamicCallError(
+            with_file_descriptor::DynamicCallError::InvalidInput(_)
+        ))
+    ));
+
+    // 4. Schema Mismatch (Unary)
+    // Passing a field that doesn't exist. This fails at encoding time inside the Codec.
+    // Tonic captures this and returns it as a Status::InvalidArgument.
     let req = DynamicRequest {
         service: "echo.EchoService".to_string(),
         method: "UnaryEcho".to_string(),
-        // Field "wrong" does not exist in EchoRequest
-        body: serde_json::json!({ "wrong": "field" }),
+        body: serde_json::json!({ "non_existent_field": "oops" }),
         headers: vec![],
     };
-    // This might fail at encoding time
-    let response = client.dynamic(req).await;
+    let result = client.dynamic(req).await;
 
-    println!("{response:#?}");
-
-    assert!(response.is_err())
+    if let Ok(DynamicResponse::Unary(Err(status))) = result {
+        assert_eq!(status.code(), Code::Internal);
+        // Note: For network/transport errors (h2 protocol error), specific message matching is fragile.
+    } else {
+        panic!("Expected Unary(Err(Internal)), got: {:?}", result);
+    }
 }

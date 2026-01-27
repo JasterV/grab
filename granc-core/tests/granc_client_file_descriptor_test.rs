@@ -1,6 +1,9 @@
 use echo_service::{EchoServiceServer, FILE_DESCRIPTOR_SET};
 use echo_service_impl::EchoServiceImpl;
-use granc_core::client::{Descriptor, DynamicRequest, DynamicResponse, GrancClient};
+use granc_core::client::{
+    Descriptor, DynamicRequest, DynamicResponse, GrancClient, with_file_descriptor,
+};
+use tonic::Code;
 
 mod echo_service_impl;
 
@@ -10,8 +13,10 @@ fn setup_client() -> GrancClient<
     >,
 > {
     let service = EchoServiceServer::new(EchoServiceImpl);
+    let client_reflection = GrancClient::from_service(service);
 
-    GrancClient::from_service(service)
+    // Transition to File Descriptor state using the embedded set
+    client_reflection
         .with_file_descriptor(FILE_DESCRIPTOR_SET.to_vec())
         .expect("Failed to load file descriptor set")
 }
@@ -49,7 +54,7 @@ async fn test_describe_descriptors() {
         panic!("Expected MessageDescriptor");
     }
 
-    // 3. Error Case
+    // 3. Error Case: Returns None
     let desc = client.get_descriptor_by_symbol("echo.Ghost");
     assert!(desc.is_none());
 }
@@ -132,7 +137,11 @@ async fn test_error_cases() {
         body: serde_json::json!({}),
         headers: vec![],
     };
-    assert!(client.dynamic(req).await.is_err());
+    let result = client.dynamic(req).await;
+    assert!(matches!(
+        result,
+        Err(with_file_descriptor::DynamicCallError::ServiceNotFound(name)) if name == "echo.GhostService"
+    ));
 
     // 2. Method Not Found
     let req = DynamicRequest {
@@ -141,5 +150,41 @@ async fn test_error_cases() {
         body: serde_json::json!({}),
         headers: vec![],
     };
-    assert!(client.dynamic(req).await.is_err());
+    let result = client.dynamic(req).await;
+    assert!(matches!(
+        result,
+        Err(with_file_descriptor::DynamicCallError::MethodNotFound(name)) if name == "GhostMethod"
+    ));
+
+    // 3. Invalid JSON Structure (Streaming requires Array)
+    let req = DynamicRequest {
+        service: "echo.EchoService".to_string(),
+        method: "ClientStreamingEcho".to_string(),
+        body: serde_json::json!({ "message": "I should be an array" }),
+        headers: vec![],
+    };
+    let result = client.dynamic(req).await;
+    assert!(matches!(
+        result,
+        Err(with_file_descriptor::DynamicCallError::InvalidInput(_))
+    ));
+
+    // 4. Schema Mismatch (Unary)
+    // Field mismatch causes encoding error -> Status::InvalidArgument
+    let req = DynamicRequest {
+        service: "echo.EchoService".to_string(),
+        method: "UnaryEcho".to_string(),
+        body: serde_json::json!({ "unknown_field": 123 }),
+        headers: vec![],
+    };
+    let result = client.dynamic(req).await;
+    println!("{result:?}");
+
+    if let Ok(DynamicResponse::Unary(Err(status))) = result {
+        assert_eq!(status.code(), Code::Internal);
+        // Verify Tonic is wrapping our error message
+        assert!(status.message().contains("JSON structure does not match"));
+    } else {
+        panic!("Expected Unary(Err(Internal)), got: {:?}", result);
+    }
 }
