@@ -1,103 +1,72 @@
 //! # Granc Client
 //!
-//! This module implements the high-level logic for executing dynamic gRPC requests
-//! and offers support for reflection operations if the server supports it.
+//! This module implements the high-level logic for executing dynamic gRPC requests.
 //!
-//! The [`GrancClient`] is the primary entry point for consumers of this library.
-//! It abstracts away the complexity of connection management, schema resolution (reflection vs. file descriptors),
-//! and generic gRPC transport.
+//! The [`GrancClient`] uses a **Typestate Pattern** to ensure safety and correctness regarding
+//! how the Protobuf schema is resolved. It has two possible states:
 //!
-//! ## Example Usage
+//! 1. **[`WithServerReflection`]**: The default state. The client is connected
+//!    to a server and uses the gRPC Server Reflection Protocol (`grpc.reflection.v1`) to discover
+//!    services and fetch schemas on the fly.
+//! 2. **[`WithFileDescriptor`]**: The client has been provided with a specific
+//!    binary `FileDescriptorSet` (e.g., loaded from a `.bin` file). In this state, reflection is
+//!    disabled, and all lookups are performed against the provided file.
+//!
+//! ## Example: State Transition
 //!
 //! ```rust,no_run
-//! use granc_core::client::{GrancClient, DynamicRequest};
-//! use serde_json::json;
+//! use granc_core::client::GrancClient;
 //!
 //! # async fn run() -> Result<(), Box<dyn std::error::Error>> {
-//! // 1. Connect to the server
-//! let mut client = GrancClient::connect("http://localhost:50051").await?;
+//! // Connect (starts in Reflection state)
+//! let mut client_reflection = GrancClient::connect("http://localhost:50051").await?;
 //!
-//! // 2. Prepare the request (using server reflection)
-//! let request = DynamicRequest {
-//!     service: "helloworld.Greeter".to_string(),
-//!     method: "SayHello".to_string(),
-//!     body: json!({ "name": "Ferris" }),
-//!     headers: vec![],
-//!     file_descriptor_set: None,
-//! };
+//! // The API here is async
+//! let services = client_reflection.list_services().await?;
 //!
-//! // 3. Execute the call
-//! let response = client.dynamic(request).await?;
-//! println!("Response: {:?}", response);
+//! // 2Transition to File Descriptor state
+//! let bytes = std::fs::read("descriptor.bin")?;
+//! let mut client_fd = client_reflection.with_file_descriptor(bytes)?;
+//!
+//! // Now operations use the local file and are sync
+//! let services = client_fd.list_services();
 //! # Ok(())
 //! # }
 //! ```
-use crate::{
-    BoxError,
-    grpc::client::{GrpcClient, GrpcRequestError},
-    reflection::client::{ReflectionClient, ReflectionResolveError},
-};
-use futures_util::Stream;
-use http_body::Body as HttpBody;
-use prost_reflect::{
-    DescriptorError, DescriptorPool, EnumDescriptor, MessageDescriptor, ServiceDescriptor,
-};
-use tokio_stream::StreamExt;
-use tonic::{
-    Code,
-    transport::{Channel, Endpoint},
-};
+pub mod with_file_descriptor;
+pub mod with_server_reflection;
 
-#[derive(Debug, thiserror::Error)]
-pub enum ClientConnectError {
-    #[error("Invalid URL '{0}': {1}")]
-    InvalidUrl(String, #[source] tonic::transport::Error),
-    #[error("Failed to connect to '{0}': {1}")]
-    ConnectionFailed(String, #[source] tonic::transport::Error),
+use crate::{grpc::client::GrpcClient, reflection::client::ReflectionClient};
+use prost_reflect::{DescriptorPool, EnumDescriptor, MessageDescriptor, ServiceDescriptor};
+use std::fmt::Debug;
+use tonic::transport::Channel;
+
+/// The main client for interacting with gRPC servers dynamically.
+///
+/// The generic parameter `T` represents the current state of the client, determining
+/// its capabilities and how it resolves Protobuf schemas.
+#[derive(Clone, Debug)]
+pub struct GrancClient<T> {
+    state: T,
 }
 
-#[derive(Debug, thiserror::Error)]
-pub enum ListServicesError {
-    #[error("Reflection resolution failed: '{0}'")]
-    ReflectionResolve(#[from] ReflectionResolveError),
+/// The state for a client that uses a local `DescriptorPool` for schema resolution.
+#[derive(Debug, Clone)]
+pub struct WithFileDescriptor<S = Channel> {
+    grpc_client: GrpcClient<S>,
+    pool: DescriptorPool,
 }
 
-#[derive(Debug, thiserror::Error)]
-pub enum GetDescriptorError {
-    #[error("Reflection resolution failed: '{0}'")]
-    ReflectionResolve(#[from] ReflectionResolveError),
-    #[error("Failed to decode file descriptor set: '{0}'")]
-    DescriptorError(#[from] DescriptorError),
-    #[error("Descriptor at path '{0}' not found")]
-    NotFound(String),
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum DynamicCallError {
-    #[error("Invalid input: '{0}'")]
-    InvalidInput(String),
-
-    #[error("Service '{0}' not found")]
-    ServiceNotFound(String),
-
-    #[error("Method '{0}' not found")]
-    MethodNotFound(String),
-
-    #[error("Reflection resolution failed: '{0}'")]
-    ReflectionResolve(#[from] ReflectionResolveError),
-
-    #[error("Failed to decode file descriptor set: '{0}'")]
-    DescriptorError(#[from] DescriptorError),
-
-    #[error("gRPC client request error: '{0}'")]
-    GrpcRequestError(#[from] GrpcRequestError),
+/// The state for a client that uses Server Reflection for schema resolution.
+#[derive(Debug, Clone)]
+pub struct WithServerReflection<S = Channel> {
+    reflection_client: ReflectionClient<S>,
+    grpc_client: GrpcClient<S>,
 }
 
 /// A request object encapsulating all necessary information to perform a dynamic gRPC call.
+#[derive(Debug, Clone)]
 pub struct DynamicRequest {
-    /// Optional binary `FileDescriptorSet` (e.g. generated by `protoc`).
-    /// If `None`, the client will attempt to use Server Reflection.
-    pub file_descriptor_set: Option<Vec<u8>>,
     /// The JSON body of the request.
     /// - For Unary/ServerStreaming: An Object `{}`.
     /// - For ClientStreaming/Bidirectional: An Array of Objects `[{}]`.
@@ -111,6 +80,7 @@ pub struct DynamicRequest {
 }
 
 /// The result of a dynamic gRPC call.
+#[derive(Debug, Clone)]
 pub enum DynamicResponse {
     /// A single response message (for Unary and Client Streaming calls).
     Unary(Result<serde_json::Value, tonic::Status>),
@@ -118,7 +88,10 @@ pub enum DynamicResponse {
     Streaming(Result<Vec<Result<serde_json::Value, tonic::Status>>, tonic::Status>),
 }
 
-/// A file descriptor of either a message, service or enum
+/// A generic wrapper for different types of Protobuf descriptors.
+///
+/// This enum allows the client to return a single type when resolving symbols,
+/// regardless of whether the symbol points to a Service, a Message, or an Enum.
 #[derive(Debug, Clone)]
 pub enum Descriptor {
     MessageDescriptor(MessageDescriptor),
@@ -127,6 +100,7 @@ pub enum Descriptor {
 }
 
 impl Descriptor {
+    /// Returns the inner [`MessageDescriptor`] if this variant is `MessageDescriptor`.
     pub fn message_descriptor(&self) -> Option<&MessageDescriptor> {
         match self {
             Descriptor::MessageDescriptor(message_descriptor) => Some(message_descriptor),
@@ -134,6 +108,7 @@ impl Descriptor {
         }
     }
 
+    /// Returns the inner [`ServiceDescriptor`] if this variant is `ServiceDescriptor`.
     pub fn service_descriptor(&self) -> Option<&ServiceDescriptor> {
         match self {
             Descriptor::ServiceDescriptor(service_descriptor) => Some(service_descriptor),
@@ -141,219 +116,11 @@ impl Descriptor {
         }
     }
 
+    /// Returns the inner [`EnumDescriptor`] if this variant is `EnumDescriptor`.
     pub fn enum_descriptor(&self) -> Option<&EnumDescriptor> {
         match self {
             Descriptor::EnumDescriptor(enum_descriptor) => Some(enum_descriptor),
             _ => None,
         }
-    }
-}
-
-/// The main client for interacting with gRPC servers dynamically.
-///
-/// It combines a [`ReflectionClient`] for schema discovery and a [`GrpcClient`] for
-/// generic transport.
-pub struct GrancClient<S = Channel> {
-    reflection_client: ReflectionClient<S>,
-    grpc_client: GrpcClient<S>,
-}
-
-impl GrancClient<Channel> {
-    /// Connects to a gRPC server at the specified address.
-    ///
-    /// # Arguments
-    ///
-    /// * `addr` - The URI of the server (e.g., `http://localhost:50051`).
-    ///
-    /// # Errors
-    ///
-    /// Returns a [`ClientConnectError`] if the URL is invalid or the connection cannot be established.
-    pub async fn connect(addr: &str) -> Result<Self, ClientConnectError> {
-        let endpoint = Endpoint::new(addr.to_string())
-            .map_err(|e| ClientConnectError::InvalidUrl(addr.to_string(), e))?;
-
-        let channel = endpoint
-            .connect()
-            .await
-            .map_err(|e| ClientConnectError::ConnectionFailed(addr.to_string(), e))?;
-
-        Ok(Self::new(channel))
-    }
-}
-
-impl<S> GrancClient<S>
-where
-    S: tonic::client::GrpcService<tonic::body::Body> + Clone,
-    S::ResponseBody: HttpBody<Data = tonic::codegen::Bytes> + Send + 'static,
-    <S::ResponseBody as HttpBody>::Error: Into<BoxError> + Send,
-{
-    /// Creates a new `GrancClient` wrapping an existing Tonic service (e.g., a `Channel`).
-    pub fn new(service: S) -> Self {
-        let reflection_client = ReflectionClient::new(service.clone());
-        let grpc_client = GrpcClient::new(service);
-
-        Self {
-            reflection_client,
-            grpc_client,
-        }
-    }
-
-    /// Fetches the list of all available services exposed by the server.
-    ///
-    /// This method relies on the server supporting the gRPC Reflection Protocol (`grpc.reflection.v1`).
-    ///
-    /// # Returns
-    ///
-    /// A list of fully qualified service names (e.g., `["grpc.reflection.v1.ServerReflection", "my.app.Greeter"]`).
-    pub async fn list_services(&mut self) -> Result<Vec<String>, ListServicesError> {
-        self.reflection_client
-            .list_services()
-            .await
-            .map_err(Into::into)
-    }
-
-    /// Resolves and fetches the [`Descriptor`] for a specific symbol using reflection.
-    ///
-    /// # Arguments
-    ///
-    /// * `symbol` - The fully qualified name of the type (e.g., `my.package.Service`).
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the descriptor cannot be found via reflection or if the resolved descriptor set is invalid.
-    pub async fn get_descriptor_by_symbol(
-        &mut self,
-        symbol: &str,
-    ) -> Result<Descriptor, GetDescriptorError> {
-        let fd_set = self
-            .reflection_client
-            .file_descriptor_set_by_symbol(symbol)
-            .await
-            .map_err(|err| match err {
-                ReflectionResolveError::ServerStreamFailure(status)
-                    if status.code() == Code::NotFound =>
-                {
-                    GetDescriptorError::NotFound(symbol.to_string())
-                }
-                err => GetDescriptorError::ReflectionResolve(err),
-            })?;
-
-        let pool = DescriptorPool::from_file_descriptor_set(fd_set)?;
-
-        if let Some(descriptor) = pool.get_service_by_name(symbol) {
-            return Ok(Descriptor::ServiceDescriptor(descriptor));
-        }
-
-        if let Some(descriptor) = pool.get_message_by_name(symbol) {
-            return Ok(Descriptor::MessageDescriptor(descriptor));
-        }
-
-        if let Some(descriptor) = pool.get_enum_by_name(symbol) {
-            return Ok(Descriptor::EnumDescriptor(descriptor));
-        }
-
-        Err(GetDescriptorError::NotFound(symbol.to_string()))
-    }
-
-    /// Executes a dynamic gRPC request.
-    ///
-    /// This is the core method of the client. It bridges the user's intent (JSON data)
-    /// to the network (gRPC/Protobuf) by resolving schemas and dispatching the call.
-    ///
-    /// # The Process
-    ///
-    /// 1. **Schema Resolution**: It builds a [`DescriptorPool`] either by decoding the provided
-    ///    `file_descriptor_set` (if present in `request`) or by querying the server's reflection
-    ///    endpoint for the requested `service` symbol.
-    /// 2. **Method Lookup**: It searches the pool for the specified `service` and `method`.
-    /// 3. **Dispatch**: Based on whether the method is Client Streaming, Server Streaming, etc.,
-    ///    it invokes the appropriate low-level transport method on [`GrpcClient`].
-    /// 4. **Transcoding**: The internal codec handles the conversion between `serde_json::Value`
-    ///    and Protobuf bytes on the fly.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`DynamicCallError`] if:
-    /// * The file descriptor set can't be decoded.
-    /// * A file descriptor set can't be resolved via reflection (In case a file descriptor set it not passed).
-    /// * The service or method does not exist in the file descriptor set.
-    /// * The input JSON is not valid for the type of call (e.g Using a single JSON for a client stream request).
-    /// * The gRPC request fails.
-    pub async fn dynamic(
-        &mut self,
-        request: DynamicRequest,
-    ) -> Result<DynamicResponse, DynamicCallError> {
-        let pool = match request.file_descriptor_set {
-            Some(bytes) => DescriptorPool::decode(bytes.as_slice())?,
-            // If no proto-set file is passed, we'll try to reach the server reflection service
-            None => {
-                let fd_set = self
-                    .reflection_client
-                    .file_descriptor_set_by_symbol(&request.service)
-                    .await?;
-                DescriptorPool::from_file_descriptor_set(fd_set)?
-            }
-        };
-
-        let method = pool
-            .get_service_by_name(&request.service)
-            .ok_or_else(|| DynamicCallError::ServiceNotFound(request.service))?
-            .methods()
-            .find(|m| m.name() == request.method)
-            .ok_or_else(|| DynamicCallError::MethodNotFound(request.method))?;
-
-        match (method.is_client_streaming(), method.is_server_streaming()) {
-            (false, false) => {
-                let result = self
-                    .grpc_client
-                    .unary(method, request.body, request.headers)
-                    .await?;
-                Ok(DynamicResponse::Unary(result))
-            }
-
-            (false, true) => {
-                match self
-                    .grpc_client
-                    .server_streaming(method, request.body, request.headers)
-                    .await?
-                {
-                    Ok(stream) => Ok(DynamicResponse::Streaming(Ok(stream.collect().await))),
-                    Err(status) => Ok(DynamicResponse::Streaming(Err(status))),
-                }
-            }
-            (true, false) => {
-                let input_stream =
-                    json_array_to_stream(request.body).map_err(DynamicCallError::InvalidInput)?;
-                let result = self
-                    .grpc_client
-                    .client_streaming(method, input_stream, request.headers)
-                    .await?;
-                Ok(DynamicResponse::Unary(result))
-            }
-
-            (true, true) => {
-                let input_stream =
-                    json_array_to_stream(request.body).map_err(DynamicCallError::InvalidInput)?;
-                match self
-                    .grpc_client
-                    .bidirectional_streaming(method, input_stream, request.headers)
-                    .await?
-                {
-                    Ok(stream) => Ok(DynamicResponse::Streaming(Ok(stream.collect().await))),
-                    Err(status) => Ok(DynamicResponse::Streaming(Err(status))),
-                }
-            }
-        }
-    }
-}
-
-/// Helper to convert a JSON Array into a Stream of JSON Values.
-/// Required for Client and Bidirectional streaming.
-fn json_array_to_stream(
-    json: serde_json::Value,
-) -> Result<impl Stream<Item = serde_json::Value> + Send + 'static, String> {
-    match json {
-        serde_json::Value::Array(items) => Ok(tokio_stream::iter(items)),
-        _ => Err("Client streaming requires a JSON Array body".to_string()),
     }
 }

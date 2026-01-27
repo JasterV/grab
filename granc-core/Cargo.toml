@@ -29,7 +29,6 @@ thiserror = "2.0.18"
 tokio = { workspace = true, features = ["sync"] }
 tokio-stream = "0.1.18"
 tonic = { workspace = true }
-tonic-prost = { workspace = true }
 tonic-reflection = { workspace = true }
 
 [dev-dependencies]

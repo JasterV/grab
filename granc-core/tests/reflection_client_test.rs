@@ -1,11 +1,11 @@
-use dummy_echo_service_impl::DummyEchoService;
 use echo_service::{EchoServiceServer, FILE_DESCRIPTOR_SET};
+use echo_service_impl::EchoServiceImpl;
 use granc_core::reflection::client::{ReflectionClient, ReflectionResolveError};
 use prost_reflect::DescriptorPool;
 use tonic::Code;
 use tonic_reflection::server::v1::ServerReflectionServer;
 
-mod dummy_echo_service_impl;
+mod echo_service_impl;
 
 fn setup_reflection_client()
 -> ReflectionClient<ServerReflectionServer<impl tonic_reflection::server::v1::ServerReflection>> {
@@ -115,7 +115,7 @@ async fn test_reflection_service_not_found_error() {
 async fn test_server_does_not_support_reflection() {
     // Create a server that ONLY hosts the EchoService.
     // This server does NOT have the Reflection service registered.
-    let server = EchoServiceServer::new(DummyEchoService);
+    let server = EchoServiceServer::new(EchoServiceImpl);
     let mut client = ReflectionClient::new(server);
 
     // The client will attempt to call `/grpc.reflection.v1.ServerReflection/ServerReflectionInfo` on this service.

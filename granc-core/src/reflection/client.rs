@@ -65,6 +65,7 @@ pub enum ReflectionResolveError {
 const EMPTY_HOST: &str = "";
 
 /// A client for interacting with the gRPC Server Reflection Service.
+#[derive(Debug, Clone)]
 pub struct ReflectionClient<T = Channel> {
     client: ServerReflectionClient<T>,
 }

@@ -13,20 +13,19 @@ pub struct Cli {
     /// The server URL to connect to (e.g. http://localhost:50051)
     pub url: String,
 
+    /// Path to the descriptor set (.bin)
+    #[arg(long)]
+    pub file_descriptor_set: Option<PathBuf>,
+
     #[command(subcommand)]
     pub command: Commands,
 }
+
 #[derive(Subcommand)]
 pub enum Commands {
     /// Perform a gRPC call to a server
     ///
     /// This command connects to a gRPC server and executes a method using a JSON body.
-    ///
-    /// ## Examples:
-    ///
-    /// ```bash
-    /// granc call http://localhost:50051 my.pkg.Service/Method --body '{"key": "value"}'
-    /// ```
     Call {
         /// Endpoint (package.Service/Method)
         #[arg(value_parser = parse_endpoint)]
@@ -37,10 +36,6 @@ pub enum Commands {
 
         #[arg(short = 'H', long = "header", value_parser = parse_header)]
         headers: Vec<(String, String)>,
-
-        /// Path to the descriptor set (.bin)
-        #[arg(long)]
-        file_descriptor_set: Option<PathBuf>,
     },
 
     /// List available services
