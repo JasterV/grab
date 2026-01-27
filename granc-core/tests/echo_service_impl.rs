@@ -1,9 +1,10 @@
 use echo_service::EchoService;
 use echo_service::pb::{EchoRequest, EchoResponse};
 use futures_util::Stream;
+use futures_util::StreamExt;
 use std::pin::Pin;
 use tokio::sync::mpsc;
-use tokio_stream::{StreamExt, wrappers::ReceiverStream};
+use tokio_stream::wrappers::ReceiverStream;
 use tonic::{Request, Response, Status, Streaming};
 
 #[derive(Debug)]

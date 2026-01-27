@@ -10,10 +10,10 @@ use crate::{
     grpc::client::{GrpcClient, GrpcRequestError},
 };
 use futures_util::Stream;
+use futures_util::StreamExt;
 use http_body::Body as HttpBody;
 use prost_reflect::DescriptorPool;
 use std::fmt::Debug;
-use tokio_stream::StreamExt;
 use tonic::transport::Channel;
 
 #[derive(Debug, thiserror::Error)]

@@ -49,6 +49,7 @@ pub struct GrancClient<T> {
 }
 
 /// A request object encapsulating all necessary information to perform a dynamic gRPC call.
+#[derive(Debug, Clone)]
 pub struct DynamicRequest {
     /// The JSON body of the request.
     /// - For Unary/ServerStreaming: An Object `{}`.
