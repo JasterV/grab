@@ -1,10 +1,9 @@
-//! # Client State: Server Reflection
+//! # Client State: Online (Reflection)
 //!
-//! This module defines the `GrancClient` behavior when it is using the server's reflection service
-//! to resolve schemas.
+//! This module defines the `GrancClient` behavior when it is connected to a server
+//! and using Server Reflection for schema resolution.
 use super::{
-    Descriptor, DynamicRequest, DynamicResponse, GrancClient, WithFileDescriptor,
-    WithServerReflection,
+    Descriptor, DynamicRequest, DynamicResponse, GrancClient, Online, OnlineWithoutReflection,
 };
 use crate::{
     BoxError,
@@ -12,14 +11,14 @@ use crate::{
     reflection::client::{ReflectionClient, ReflectionResolveError},
 };
 use http_body::Body as HttpBody;
-use prost_reflect::DescriptorError;
-use prost_reflect::DescriptorPool;
+use prost_reflect::{DescriptorError, DescriptorPool};
 use std::fmt::Debug;
 use tonic::{
     Code,
     transport::{Channel, Endpoint},
 };
 
+/// Errors that can occur when connecting to a gRPC server.
 #[derive(Debug, thiserror::Error)]
 pub enum ClientConnectError {
     #[error("Invalid URL '{0}': {1}")]
@@ -28,18 +27,18 @@ pub enum ClientConnectError {
     ConnectionFailed(String, #[source] tonic::transport::Error),
 }
 
+/// Errors that can occur during a dynamic call in Online mode.
 #[derive(Debug, thiserror::Error)]
 pub enum DynamicCallError {
     #[error("Reflection resolution failed: '{0}'")]
     ReflectionResolve(#[from] ReflectionResolveError),
-
     #[error("Failed to decode file descriptor set: '{0}'")]
     DescriptorError(#[from] DescriptorError),
-
     #[error(transparent)]
-    DynamicCallError(#[from] super::with_file_descriptor::DynamicCallError),
+    DynamicCallError(#[from] super::online_without_reflection::DynamicCallError),
 }
 
+/// Errors that can occur when looking up a descriptor in Online mode.
 #[derive(Debug, thiserror::Error)]
 pub enum GetDescriptorError {
     #[error("Reflection resolution failed: '{0}'")]
@@ -50,20 +49,17 @@ pub enum GetDescriptorError {
     NotFound(String),
 }
 
-impl GrancClient<WithServerReflection<Channel>> {
-    /// Connects to a gRPC server at the specified address.
-    ///
-    /// This initializes the client in the **Reflection** state. It establishes a TCP connection
-    /// but does not yet perform any reflection calls.
+impl GrancClient<Online<Channel>> {
+    /// Connects to a gRPC server and initializes the client in the `Online` state.
     ///
     /// # Arguments
     ///
-    /// * `addr` - The URI of the server (e.g., `http://localhost:50051`).
+    /// * `addr` - The server URI (e.g., `http://localhost:50051`).
     ///
     /// # Returns
     ///
-    /// * `Ok(GrancClient<WithServerReflection>)` - The connected client ready to use reflection.
-    /// * `Err(ClientConnectError)` - If the URL is invalid or the connection cannot be established.
+    /// * `Ok(GrancClient<Online>)` - The connected client.
+    /// * `Err(ClientConnectError)` - If the URL is invalid or connection fails.
     pub async fn connect(addr: &str) -> Result<Self, ClientConnectError> {
         let endpoint = Endpoint::new(addr.to_string())
             .map_err(|e| ClientConnectError::InvalidUrl(addr.to_string(), e))?;
@@ -77,73 +73,47 @@ impl GrancClient<WithServerReflection<Channel>> {
     }
 }
 
-impl<S> GrancClient<WithServerReflection<S>>
+impl<S> GrancClient<Online<S>>
 where
     S: tonic::client::GrpcService<tonic::body::Body> + Clone,
     S::ResponseBody: HttpBody<Data = tonic::codegen::Bytes> + Send + 'static,
     <S::ResponseBody as HttpBody>::Error: Into<BoxError> + Send,
 {
-    /// Creates a new `GrancClient` wrapping an existing Tonic service (e.g., a `Channel` or `InterceptedService`).
-    ///
-    /// # Arguments
-    ///
-    /// * `service` - The generic gRPC service implementation to use for transport.
+    /// Creates a client from an existing Tonic service/channel.
     pub fn from_service(service: S) -> Self {
         let reflection_client = ReflectionClient::new(service.clone());
         let grpc_client = GrpcClient::new(service);
-
         Self {
-            state: WithServerReflection {
+            state: Online {
                 reflection_client,
                 grpc_client,
             },
         }
     }
 
-    /// Transitions the client to the **File Descriptor** state.
+    /// Transitions to the **OnlineWithoutReflection** state.
     ///
-    /// This method consumes the current client and returns a new client that uses the provided
-    /// binary `FileDescriptorSet` for all schema lookups, disabling server reflection.
+    /// This keeps the connection but disables reflection, forcing the use of the
+    /// provided `FileDescriptorSet`.
     ///
     /// # Arguments
-    ///
-    /// * `file_descriptor` - A vector of bytes containing the encoded `FileDescriptorSet` (protobuf binary format).
-    ///
-    /// # Returns
-    ///
-    /// * `Ok(GrancClient<WithFileDescriptor>)` - The new client state.
-    /// * `Err(DescriptorError)` - If the provided bytes could not be decoded into a valid `DescriptorPool`.
+    /// * `file_descriptor` - The binary descriptor set to use for all future calls.
     pub fn with_file_descriptor(
         self,
         file_descriptor: Vec<u8>,
-    ) -> Result<GrancClient<WithFileDescriptor<S>>, DescriptorError> {
+    ) -> Result<GrancClient<OnlineWithoutReflection<S>>, DescriptorError> {
         let pool = DescriptorPool::decode(file_descriptor.as_slice())?;
         Ok(GrancClient::new(self.state.grpc_client, pool))
     }
 
-    /// Lists all services exposed by the server by querying the reflection endpoint.
-    ///
-    /// # Returns
-    ///
-    /// * `Ok(Vec<String>)` - A list of fully qualified service names (e.g. `helloworld.Greeter`).
-    /// * `Err(ReflectionResolveError)` - If the reflection call fails or the server doesn't support reflection.
+    /// Lists services available on the server via Reflection.
     pub async fn list_services(&mut self) -> Result<Vec<String>, ReflectionResolveError> {
         self.state.reflection_client.list_services().await
     }
 
-    /// Resolves and fetches the descriptor for a specific symbol using reflection.
+    /// Resolves a symbol using Reflection.
     ///
-    /// This will recursively fetch the file defining the symbol and all its dependencies
-    /// from the server.
-    ///
-    /// # Arguments
-    ///
-    /// * `symbol` - The fully qualified name of the symbol (Service, Message, or Enum).
-    ///
-    /// # Returns
-    ///
-    /// * `Ok(Descriptor)` - The resolved descriptor wrapper.
-    /// * `Err(GetDescriptorError)` - If the symbol is not found or reflection fails.
+    /// This fetches the schema from the server and returns a `Descriptor`.
     pub async fn get_descriptor_by_symbol(
         &mut self,
         symbol: &str,
@@ -164,28 +134,20 @@ where
 
         let pool = DescriptorPool::from_file_descriptor_set(fd_set)?;
 
+        // Build a temporary OnlineWithoutReflection client just to reuse lookup logic
         let mut client =
-            GrancClient::<WithFileDescriptor<S>>::new(self.state.grpc_client.clone(), pool);
+            GrancClient::<OnlineWithoutReflection<S>>::new(self.state.grpc_client.clone(), pool);
 
         client
             .get_descriptor_by_symbol(symbol)
             .ok_or_else(|| GetDescriptorError::NotFound(symbol.to_string()))
     }
 
-    /// Executes a dynamic gRPC request using reflection.
+    /// Executes a dynamic gRPC request using Reflection for schema resolution.
     ///
-    /// 1. It fetches the schema for the requested `service` via reflection.
-    /// 2. It builds a temporary `WithFileDescriptor` client using that schema.
-    /// 3. It delegates the call to that client.
-    ///
-    /// # Arguments
-    ///
-    /// * `request` - The [`DynamicRequest`] containing the method to call and the JSON body.
-    ///
-    /// # Returns
-    ///
-    /// * `Ok(DynamicResponse)` - The result of the gRPC call (Unary or Streaming).
-    /// * `Err(DynamicCallError)` - If schema resolution, validation, or the network call fails.
+    /// 1. Fetches the schema for `request.service` via reflection.
+    /// 2. Builds a temporary `OnlineWithoutReflection` client.
+    /// 3. Executes the call.
     pub async fn dynamic(
         &mut self,
         request: DynamicRequest,
@@ -195,12 +157,10 @@ where
             .reflection_client
             .file_descriptor_set_by_symbol(&request.service)
             .await?;
-
         let pool = DescriptorPool::from_file_descriptor_set(fd_set)?;
 
         let mut client =
-            GrancClient::<WithFileDescriptor<S>>::new(self.state.grpc_client.clone(), pool);
-
+            GrancClient::<OnlineWithoutReflection<S>>::new(self.state.grpc_client.clone(), pool);
         Ok(client.dynamic(request).await?)
     }
 }

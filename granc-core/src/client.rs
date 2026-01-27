@@ -3,14 +3,15 @@
 //! This module implements the high-level logic for executing dynamic gRPC requests.
 //!
 //! The [`GrancClient`] uses a **Typestate Pattern** to ensure safety and correctness regarding
-//! how the Protobuf schema is resolved. It has two possible states:
+//! how the Protobuf schema is resolved. It has three possible states:
 //!
-//! 1. **[`WithServerReflection`]**: The default state. The client is connected
-//!    to a server and uses the gRPC Server Reflection Protocol (`grpc.reflection.v1`) to discover
-//!    services and fetch schemas on the fly.
-//! 2. **[`WithFileDescriptor`]**: The client has been provided with a specific
-//!    binary `FileDescriptorSet` (e.g., loaded from a `.bin` file). In this state, reflection is
-//!    disabled, and all lookups are performed against the provided file.
+//! 1. **[`Online`]**: The default state when connecting. The client uses the gRPC
+//!    Server Reflection Protocol (`grpc.reflection.v1`) to discover services.
+//! 2. **[`OnlineWithoutReflection`]**: The client is connected to a server but uses a local
+//!    binary `FileDescriptorSet` for schema lookups.
+//! 3. **[`Offline`]**: The client is **not connected** to any server. It holds a
+//!    local `FileDescriptorSet` and can only be used for introspection (Listing services, describing symbols),
+//!    but cannot perform gRPC calls.
 //!
 //! ## Example: State Transition
 //!
@@ -18,23 +19,22 @@
 //! use granc_core::client::GrancClient;
 //!
 //! # async fn run() -> Result<(), Box<dyn std::error::Error>> {
-//! // Connect (starts in Reflection state)
-//! let mut client_reflection = GrancClient::connect("http://localhost:50051").await?;
+//! // 1. Online State (Reflection)
+//! let mut client = GrancClient::connect("http://localhost:50051").await?;
 //!
-//! // The API here is async
-//! let services = client_reflection.list_services().await?;
-//!
-//! // 2Transition to File Descriptor state
+//! // 2. Transition to OnlineWithoutReflection (Connected + Local Schema)
 //! let bytes = std::fs::read("descriptor.bin")?;
-//! let mut client_fd = client_reflection.with_file_descriptor(bytes)?;
+//! let mut client_static = client.with_file_descriptor(bytes)?;
 //!
-//! // Now operations use the local file and are sync
-//! let services = client_fd.list_services();
+//! // 3. Offline State (Disconnected + Local Schema)
+//! let bytes = std::fs::read("descriptor.bin")?;
+//! let mut client_offline = GrancClient::offline(bytes)?;
 //! # Ok(())
 //! # }
 //! ```
-pub mod with_file_descriptor;
-pub mod with_server_reflection;
+pub mod offline;
+pub mod online;
+pub mod online_without_reflection;
 
 use crate::{grpc::client::GrpcClient, reflection::client::ReflectionClient};
 use prost_reflect::{DescriptorPool, EnumDescriptor, MessageDescriptor, ServiceDescriptor};
@@ -43,25 +43,30 @@ use tonic::transport::Channel;
 
 /// The main client for interacting with gRPC servers dynamically.
 ///
-/// The generic parameter `T` represents the current state of the client, determining
-/// its capabilities and how it resolves Protobuf schemas.
+/// The generic parameter `T` represents the current state of the client.
 #[derive(Clone, Debug)]
 pub struct GrancClient<T> {
     state: T,
 }
 
-/// The state for a client that uses a local `DescriptorPool` for schema resolution.
+/// State: Connected to server, Schema from Server Reflection.
 #[derive(Debug, Clone)]
-pub struct WithFileDescriptor<S = Channel> {
+pub struct Online<S = Channel> {
+    reflection_client: ReflectionClient<S>,
+    grpc_client: GrpcClient<S>,
+}
+
+/// State: Connected to server, Schema from local FileDescriptor.
+#[derive(Debug, Clone)]
+pub struct OnlineWithoutReflection<S = Channel> {
     grpc_client: GrpcClient<S>,
     pool: DescriptorPool,
 }
 
-/// The state for a client that uses Server Reflection for schema resolution.
+/// State: Disconnected, Schema from local FileDescriptor.
 #[derive(Debug, Clone)]
-pub struct WithServerReflection<S = Channel> {
-    reflection_client: ReflectionClient<S>,
-    grpc_client: GrpcClient<S>,
+pub struct Offline {
+    pool: DescriptorPool,
 }
 
 /// A request object encapsulating all necessary information to perform a dynamic gRPC call.
@@ -103,7 +108,7 @@ impl Descriptor {
     /// Returns the inner [`MessageDescriptor`] if this variant is `MessageDescriptor`.
     pub fn message_descriptor(&self) -> Option<&MessageDescriptor> {
         match self {
-            Descriptor::MessageDescriptor(message_descriptor) => Some(message_descriptor),
+            Descriptor::MessageDescriptor(d) => Some(d),
             _ => None,
         }
     }
@@ -111,7 +116,7 @@ impl Descriptor {
     /// Returns the inner [`ServiceDescriptor`] if this variant is `ServiceDescriptor`.
     pub fn service_descriptor(&self) -> Option<&ServiceDescriptor> {
         match self {
-            Descriptor::ServiceDescriptor(service_descriptor) => Some(service_descriptor),
+            Descriptor::ServiceDescriptor(d) => Some(d),
             _ => None,
         }
     }
@@ -119,7 +124,7 @@ impl Descriptor {
     /// Returns the inner [`EnumDescriptor`] if this variant is `EnumDescriptor`.
     pub fn enum_descriptor(&self) -> Option<&EnumDescriptor> {
         match self {
-            Descriptor::EnumDescriptor(enum_descriptor) => Some(enum_descriptor),
+            Descriptor::EnumDescriptor(d) => Some(d),
             _ => None,
         }
     }

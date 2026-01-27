@@ -1,6 +1,6 @@
 use colored::*;
 use granc_core::{
-    client::{with_file_descriptor, with_server_reflection},
+    client::{online, online_without_reflection},
     prost_reflect::{
         self, EnumDescriptor, Kind, MessageDescriptor, MethodDescriptor, ServiceDescriptor,
     },
@@ -43,15 +43,15 @@ impl From<Status> for FormattedString {
 }
 
 // Error from Reflection-based calls
-impl From<with_server_reflection::DynamicCallError> for FormattedString {
-    fn from(err: with_server_reflection::DynamicCallError) -> Self {
+impl From<online::DynamicCallError> for FormattedString {
+    fn from(err: online::DynamicCallError) -> Self {
         FormattedString(format!("{}\n\n'{}'", "Call Failed:".red().bold(), err))
     }
 }
 
 // Error from FileDescriptor-based calls
-impl From<with_file_descriptor::DynamicCallError> for FormattedString {
-    fn from(err: with_file_descriptor::DynamicCallError) -> Self {
+impl From<online_without_reflection::DynamicCallError> for FormattedString {
+    fn from(err: online_without_reflection::DynamicCallError) -> Self {
         FormattedString(format!("{}\n\n'{}'", "Call Failed:".red().bold(), err))
     }
 }
@@ -82,14 +82,14 @@ impl<T: Display> From<GenericError<T>> for FormattedString {
     }
 }
 
-impl From<with_server_reflection::ClientConnectError> for FormattedString {
-    fn from(err: with_server_reflection::ClientConnectError) -> Self {
+impl From<online::ClientConnectError> for FormattedString {
+    fn from(err: online::ClientConnectError) -> Self {
         FormattedString(format!("{}\n\n'{}'", "Connection Error:".red().bold(), err))
     }
 }
 
-impl From<with_server_reflection::GetDescriptorError> for FormattedString {
-    fn from(err: with_server_reflection::GetDescriptorError) -> Self {
+impl From<online::GetDescriptorError> for FormattedString {
+    fn from(err: online::GetDescriptorError) -> Self {
         FormattedString(format!(
             "{}\n\n'{}'",
             "Symbol Lookup Failed:".red().bold(),

@@ -3,49 +3,33 @@
 //! The main executable for the Granc tool. This file drives the application lifecycle:
 //!
 //! 1. **Initialization**: Parses command-line arguments using [`cli::Cli`].
-//! 2. **Connection**: Establishes a TCP connection to the target server via `granc_core`.
-//! 3. **Execution**: Delegates the request processing to the `GrancClient` (handling state transitions).
-//! 4. **Presentation**: Formats and prints the resulting data or errors to standard output/error.
-
+//! 2. **Dispatch**: Routes the command to the appropriate handler based on input arguments
+//!    (connecting to server vs loading local file).
+//! 3. **Execution**: Delegates request processing to `GrancClient`.
+//! 4. **Presentation**: Formats and prints data.
 mod cli;
 mod formatter;
 
 use clap::Parser;
-use cli::{Cli, Commands};
+use cli::{Cli, Commands, Source};
 use formatter::{FormattedString, GenericError, ServiceList};
-use granc_core::client::{
-    Descriptor, DynamicRequest, DynamicResponse, GrancClient, WithFileDescriptor,
-    WithServerReflection,
-};
-use granc_core::tonic::transport::Channel;
+use granc_core::client::{Descriptor, DynamicRequest, DynamicResponse, GrancClient};
 use std::process;
 
 #[tokio::main]
 async fn main() {
     let args = Cli::parse();
 
-    let client = unwrap_or_exit(GrancClient::connect(&args.url).await);
-
-    if let Some(path) = args.file_descriptor_set {
-        let bytes = unwrap_or_exit(std::fs::read(&path));
-        let client = unwrap_or_exit(client.with_file_descriptor(bytes));
-        handle_file_descriptor_mode(client, args.command).await;
-    } else {
-        handle_reflection_mode(client, args.command).await;
-    }
-}
-
-async fn handle_reflection_mode(
-    mut client: GrancClient<WithServerReflection<Channel>>,
-    command: Commands,
-) {
-    match command {
+    match args.command {
         Commands::Call {
             endpoint,
+            url,
             body,
             headers,
+            file_descriptor_set,
         } => {
             let (service, method) = endpoint;
+
             let request = DynamicRequest {
                 body,
                 headers,
@@ -53,59 +37,62 @@ async fn handle_reflection_mode(
                 method,
             };
 
-            let response = unwrap_or_exit(client.dynamic(request).await);
-            print_response(response);
-        }
-        Commands::List => {
-            let services = unwrap_or_exit(
-                client
-                    .list_services()
-                    .await
-                    .map_err(|err| GenericError("Failed to list services:", err)),
-            );
-            println!("{}", FormattedString::from(ServiceList(services)));
-        }
-        Commands::Describe { symbol } => {
-            let descriptor = unwrap_or_exit(client.get_descriptor_by_symbol(&symbol).await);
-            print_descriptor(descriptor);
-        }
-    }
-}
+            let mut client = unwrap_or_exit(GrancClient::connect(&url).await);
 
-// --- Handler for File Descriptor Mode ---
-
-async fn handle_file_descriptor_mode(
-    mut client: GrancClient<WithFileDescriptor<Channel>>,
-    command: Commands,
-) {
-    match command {
-        Commands::Call {
-            endpoint,
-            body,
-            headers,
-        } => {
-            let (service, method) = endpoint;
-            let request = DynamicRequest {
-                body,
-                headers,
-                service,
-                method,
-            };
-
-            let response = unwrap_or_exit(client.dynamic(request).await);
-            print_response(response);
+            if let Some(path) = file_descriptor_set {
+                let fd_bytes = unwrap_or_exit(std::fs::read(&path));
+                let mut client = unwrap_or_exit(client.with_file_descriptor(fd_bytes));
+                let response = unwrap_or_exit(client.dynamic(request).await);
+                print_response(response);
+            } else {
+                let response = unwrap_or_exit(client.dynamic(request).await);
+                print_response(response);
+            }
         }
-        Commands::List => {
-            let services = client.list_services();
-            println!("{}", FormattedString::from(ServiceList(services)));
+
+        Commands::List { source } => {
+            match source.value() {
+                Source::Url(url) => {
+                    // Online (Reflection)
+                    let mut client = unwrap_or_exit(GrancClient::connect(&url).await);
+                    let services = unwrap_or_exit(
+                        client
+                            .list_services()
+                            .await
+                            .map_err(|err| GenericError("Failed to list services:", err)),
+                    );
+                    println!("{}", FormattedString::from(ServiceList(services)));
+                }
+                Source::File(path) => {
+                    // Offline (File)
+                    let fd_bytes = unwrap_or_exit(std::fs::read(&path));
+                    let client = unwrap_or_exit(GrancClient::offline(fd_bytes));
+                    let services = client.list_services();
+                    println!("{}", FormattedString::from(ServiceList(services)));
+                }
+            }
         }
-        Commands::Describe { symbol } => {
-            let descriptor = unwrap_or_exit(
-                client
-                    .get_descriptor_by_symbol(&symbol)
-                    .ok_or(GenericError("Symbol not found", symbol)),
-            );
-            print_descriptor(descriptor);
+
+        Commands::Describe { symbol, source } => {
+            match source.value() {
+                Source::Url(url) => {
+                    // Online (Reflection)
+                    let mut client = unwrap_or_exit(GrancClient::connect(&url).await);
+                    let descriptor = unwrap_or_exit(client.get_descriptor_by_symbol(&symbol).await);
+                    print_descriptor(descriptor);
+                }
+                Source::File(path) => {
+                    // Offline (File)
+                    let fd_bytes = unwrap_or_exit(std::fs::read(&path));
+                    let client = unwrap_or_exit(GrancClient::offline(fd_bytes));
+                    let descriptor = unwrap_or_exit(
+                        client
+                            .get_descriptor_by_symbol(&symbol)
+                            .ok_or(GenericError("Symbol not found", symbol)),
+                    );
+                    print_descriptor(descriptor);
+                }
+            }
         }
     }
 }
