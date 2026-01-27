@@ -11,7 +11,7 @@ publish = true
 readme = "../README.md"
 repository = { workspace = true }
 rust-version = { workspace = true }
-version = "0.5.1"
+version = "0.5.2"
 
 [dependencies]
 clap = { version = "4.5.54", features = ["derive"] }

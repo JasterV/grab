@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## `granc` - [0.5.2](https://github.com/JasterV/granc/compare/granc-v0.5.1...granc-v0.5.2) - 2026-01-27
+
+### Other
+- [feature] + [refactor] => Allow ALL commands to be executed against a local file descriptor ([#28](https://github.com/JasterV/granc/pull/28))
+
+## `granc_core` - [0.5.0](https://github.com/JasterV/granc/compare/granc_core-v0.4.1...granc_core-v0.5.0) - 2026-01-27
+
+### Other
+- [feature] + [refactor] => Allow ALL commands to be executed against a local file descriptor ([#28](https://github.com/JasterV/granc/pull/28))
+
 ## `granc` - [0.5.1](https://github.com/JasterV/granc/compare/granc-v0.5.0...granc-v0.5.1) - 2026-01-24
 
 ### Other
