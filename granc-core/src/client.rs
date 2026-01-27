@@ -5,10 +5,10 @@
 //! The [`GrancClient`] uses a **Typestate Pattern** to ensure safety and correctness regarding
 //! how the Protobuf schema is resolved. It has two possible states:
 //!
-//! 1. **[`with_server_reflection::WithServerReflection`]**: The default state. The client is connected
+//! 1. **[`WithServerReflection`]**: The default state. The client is connected
 //!    to a server and uses the gRPC Server Reflection Protocol (`grpc.reflection.v1`) to discover
 //!    services and fetch schemas on the fly.
-//! 2. **[`with_file_descriptor::WithFileDescriptor`]**: The client has been provided with a specific
+//! 2. **[`WithFileDescriptor`]**: The client has been provided with a specific
 //!    binary `FileDescriptorSet` (e.g., loaded from a `.bin` file). In this state, reflection is
 //!    disabled, and all lookups are performed against the provided file.
 //!
