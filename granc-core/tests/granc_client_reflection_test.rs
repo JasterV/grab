@@ -27,45 +27,49 @@ async fn setup_client() -> GrancClient<WithServerReflection<Routes>> {
 async fn test_reflection_list_services() {
     let mut client = setup_client().await;
 
-    let services = client.list_services().await.unwrap();
-    assert!(services.contains(&"echo.EchoService".to_string()));
-    assert!(services.contains(&"grpc.reflection.v1.ServerReflection".to_string()));
+    let mut services = client.list_services().await.unwrap();
+
+    services.sort();
+
+    assert_eq!(
+        services.as_slice(),
+        ["echo.EchoService", "grpc.reflection.v1.ServerReflection"]
+    );
 }
 
 #[tokio::test]
 async fn test_reflection_describe_descriptors() {
     let mut client = setup_client().await;
 
-    // 1. Describe Service
     let desc = client
         .get_descriptor_by_symbol("echo.EchoService")
         .await
         .unwrap();
-    if let Descriptor::ServiceDescriptor(s) = desc {
-        assert_eq!(s.name(), "EchoService");
-        assert!(s.methods().any(|m| m.name() == "UnaryEcho"));
-    } else {
-        panic!("Expected ServiceDescriptor");
-    }
 
-    // 2. Describe Message
+    assert!(matches!(
+        desc,
+        Descriptor::ServiceDescriptor(s)
+            if s.name() == "EchoService"
+            && s.methods().any(|m| m.name() == "UnaryEcho")
+    ));
+
     let desc = client
         .get_descriptor_by_symbol("echo.EchoRequest")
         .await
         .unwrap();
-    if let Descriptor::MessageDescriptor(m) = desc {
-        assert_eq!(m.name(), "EchoRequest");
-        assert!(m.fields().any(|f| f.name() == "message"));
-    } else {
-        panic!("Expected MessageDescriptor");
-    }
+
+    assert!(matches!(
+        desc,
+        Descriptor::MessageDescriptor(m)
+            if m.name() == "EchoRequest"
+            && m.fields().any(|f| f.name() == "message")
+    ));
 }
 
 #[tokio::test]
 async fn test_reflection_describe_error() {
     let mut client = setup_client().await;
 
-    // Error Case: Non-existent symbol
     let result = client.get_descriptor_by_symbol("echo.Ghost").await;
 
     assert!(matches!(
@@ -78,35 +82,31 @@ async fn test_reflection_describe_error() {
 async fn test_reflection_dynamic_calls() {
     let mut client = setup_client().await;
 
-    // 1. Unary Call
+    // Unary Call
     let req = DynamicRequest {
         service: "echo.EchoService".to_string(),
         method: "UnaryEcho".to_string(),
         body: serde_json::json!({ "message": "hello" }),
         headers: vec![],
     };
-    let res = client.dynamic(req).await.unwrap();
-    if let DynamicResponse::Unary(Ok(val)) = res {
-        assert_eq!(val["message"], "hello");
-    } else {
-        panic!("Unexpected response type for Unary");
-    }
 
-    // 2. Server Streaming
+    let res = client.dynamic(req).await.unwrap();
+
+    assert!(matches!(res, DynamicResponse::Unary(Ok(val)) if val["message"] == "hello"));
+
+    // Server Streaming
     let req = DynamicRequest {
         service: "echo.EchoService".to_string(),
         method: "ServerStreamingEcho".to_string(),
         body: serde_json::json!({ "message": "stream" }),
         headers: vec![],
     };
-    let res = client.dynamic(req).await.unwrap();
-    if let DynamicResponse::Streaming(Ok(stream)) = res {
-        assert_eq!(stream.len(), 3);
-    } else {
-        panic!("Unexpected response type for Server Streaming");
-    }
 
-    // 3. Client Streaming
+    let res = client.dynamic(req).await.unwrap();
+
+    assert!(matches!(res, DynamicResponse::Streaming(Ok(stream)) if stream.len() == 3));
+
+    // Client Streaming
     let req = DynamicRequest {
         service: "echo.EchoService".to_string(),
         method: "ClientStreamingEcho".to_string(),
@@ -116,14 +116,12 @@ async fn test_reflection_dynamic_calls() {
         ]),
         headers: vec![],
     };
-    let res = client.dynamic(req).await.unwrap();
-    if let DynamicResponse::Unary(Ok(val)) = res {
-        assert_eq!(val["message"], "AB");
-    } else {
-        panic!("Unexpected response type for Client Streaming");
-    }
 
-    // 4. Bidirectional Streaming
+    let res = client.dynamic(req).await.unwrap();
+
+    assert!(matches!(res, DynamicResponse::Unary(Ok(val)) if val["message"] == "AB"));
+
+    // Bidirectional Streaming
     let req = DynamicRequest {
         service: "echo.EchoService".to_string(),
         method: "BidirectionalEcho".to_string(),
@@ -133,28 +131,28 @@ async fn test_reflection_dynamic_calls() {
         headers: vec![],
     };
     let res = client.dynamic(req).await.unwrap();
-    if let DynamicResponse::Streaming(Ok(stream)) = res {
-        assert_eq!(stream.len(), 1);
-        assert_eq!(stream[0].as_ref().unwrap()["message"], "echo: Ping");
-    } else {
-        panic!("Unexpected response type for Bidi Streaming");
-    }
+
+    assert!(matches!(res,
+        DynamicResponse::Streaming(Ok(stream))
+            if stream.len() == 1
+            && stream[0].as_ref().unwrap()["message"] == "echo: Ping"
+    ));
 }
 
 #[tokio::test]
 async fn test_reflection_dynamic_error_cases() {
     let mut client = setup_client().await;
 
-    // 1. Invalid Service Name
+    // Invalid Service Name
     let req = DynamicRequest {
         service: "echo.GhostService".to_string(),
         method: "UnaryEcho".to_string(),
         body: serde_json::json!({}),
         headers: vec![],
     };
+
     let result = client.dynamic(req).await;
 
-    // We expect a ReflectionResolve error wrapping a ServerStreamFailure with Code::NotFound
     assert!(matches!(
         result,
         Err(with_server_reflection::DynamicCallError::ReflectionResolve(
@@ -162,16 +160,16 @@ async fn test_reflection_dynamic_error_cases() {
         )) if status.code() == Code::NotFound
     ));
 
-    // 2. Invalid Method Name
+    // Invalid Method Name
     let req = DynamicRequest {
         service: "echo.EchoService".to_string(),
         method: "GhostMethod".to_string(),
         body: serde_json::json!({}),
         headers: vec![],
     };
+
     let result = client.dynamic(req).await;
 
-    // We expect the error to bubble up from the underlying WithFileDescriptor client
     assert!(matches!(
         result,
         Err(with_server_reflection::DynamicCallError::DynamicCallError(
@@ -179,7 +177,7 @@ async fn test_reflection_dynamic_error_cases() {
         )) if name == "GhostMethod"
     ));
 
-    // 3. Invalid JSON Structure (Streaming requires Array, Object provided)
+    // Invalid JSON Structure (Streaming requires Array, Object provided)
     // This triggers `DynamicCallError::InvalidInput` before the request is sent.
     let req = DynamicRequest {
         service: "echo.EchoService".to_string(),
@@ -187,6 +185,7 @@ async fn test_reflection_dynamic_error_cases() {
         body: serde_json::json!({ "message": "I should be an array" }),
         headers: vec![],
     };
+
     let result = client.dynamic(req).await;
 
     assert!(matches!(
@@ -196,7 +195,7 @@ async fn test_reflection_dynamic_error_cases() {
         ))
     ));
 
-    // 4. Schema Mismatch (Unary)
+    // Schema Mismatch (Unary)
     // Passing a field that doesn't exist. This fails at encoding time inside the Codec.
     // Tonic wraps encoding errors as Code::Internal.
     let req = DynamicRequest {
@@ -205,12 +204,11 @@ async fn test_reflection_dynamic_error_cases() {
         body: serde_json::json!({ "non_existent_field": "oops" }),
         headers: vec![],
     };
+
     let result = client.dynamic(req).await;
 
-    if let Ok(DynamicResponse::Unary(Err(status))) = result {
-        assert_eq!(status.code(), Code::Internal);
-        // Note: For network/transport errors (h2 protocol error), specific message matching is fragile.
-    } else {
-        panic!("Expected Unary(Err(Internal)), got: {:?}", result);
-    }
+    assert!(matches!(
+        result,
+        Ok(DynamicResponse::Unary(Err(status))) if status.code() == Code::Internal
+    ));
 }
