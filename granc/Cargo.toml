@@ -14,7 +14,7 @@ rust-version = { workspace = true }
 version = "0.6.0"
 
 [dependencies]
-clap = { version = "4.5.54", features = ["derive"] }
+clap = { version = "4.5.55", features = ["derive"] }
 colored = "3.1.1"
 granc_core = { path = "../granc-core" }
 serde_json = { workspace = true }
