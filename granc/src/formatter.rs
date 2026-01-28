@@ -1,6 +1,6 @@
 use colored::*;
 use granc_core::{
-    client::{with_file_descriptor, with_server_reflection},
+    client::{Descriptor, DynamicResponse, online, online_without_reflection},
     prost_reflect::{
         self, EnumDescriptor, Kind, MessageDescriptor, MethodDescriptor, ServiceDescriptor,
     },
@@ -42,16 +42,36 @@ impl From<Status> for FormattedString {
     }
 }
 
+impl From<DynamicResponse> for FormattedString {
+    fn from(value: DynamicResponse) -> Self {
+        match value {
+            DynamicResponse::Unary(Ok(value)) => FormattedString::from(value),
+            DynamicResponse::Unary(Err(status)) => FormattedString::from(status),
+            DynamicResponse::Streaming(Ok(values)) => {
+                let mut s = String::new();
+                for elem in values {
+                    match elem {
+                        Ok(val) => s.push_str(&FormattedString::from(val).0),
+                        Err(status) => s.push_str(&FormattedString::from(status).0),
+                    }
+                }
+                FormattedString(s)
+            }
+            DynamicResponse::Streaming(Err(status)) => FormattedString::from(status),
+        }
+    }
+}
+
 // Error from Reflection-based calls
-impl From<with_server_reflection::DynamicCallError> for FormattedString {
-    fn from(err: with_server_reflection::DynamicCallError) -> Self {
+impl From<online::DynamicCallError> for FormattedString {
+    fn from(err: online::DynamicCallError) -> Self {
         FormattedString(format!("{}\n\n'{}'", "Call Failed:".red().bold(), err))
     }
 }
 
 // Error from FileDescriptor-based calls
-impl From<with_file_descriptor::DynamicCallError> for FormattedString {
-    fn from(err: with_file_descriptor::DynamicCallError) -> Self {
+impl From<online_without_reflection::DynamicCallError> for FormattedString {
+    fn from(err: online_without_reflection::DynamicCallError) -> Self {
         FormattedString(format!("{}\n\n'{}'", "Call Failed:".red().bold(), err))
     }
 }
@@ -82,14 +102,14 @@ impl<T: Display> From<GenericError<T>> for FormattedString {
     }
 }
 
-impl From<with_server_reflection::ClientConnectError> for FormattedString {
-    fn from(err: with_server_reflection::ClientConnectError) -> Self {
+impl From<online::ClientConnectError> for FormattedString {
+    fn from(err: online::ClientConnectError) -> Self {
         FormattedString(format!("{}\n\n'{}'", "Connection Error:".red().bold(), err))
     }
 }
 
-impl From<with_server_reflection::GetDescriptorError> for FormattedString {
-    fn from(err: with_server_reflection::GetDescriptorError) -> Self {
+impl From<online::GetDescriptorError> for FormattedString {
+    fn from(err: online::GetDescriptorError) -> Self {
         FormattedString(format!(
             "{}\n\n'{}'",
             "Symbol Lookup Failed:".red().bold(),
@@ -110,6 +130,16 @@ impl From<ServiceList> for FormattedString {
             out.push_str(&format!("  - {}\n", svc.green()));
         }
         FormattedString(out.trim_end().to_string())
+    }
+}
+
+impl From<Descriptor> for FormattedString {
+    fn from(value: Descriptor) -> Self {
+        match value {
+            Descriptor::MessageDescriptor(d) => FormattedString::from(d),
+            Descriptor::ServiceDescriptor(d) => FormattedString::from(d),
+            Descriptor::EnumDescriptor(d) => FormattedString::from(d),
+        }
     }
 }
 
