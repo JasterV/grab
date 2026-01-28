@@ -12,7 +12,7 @@ mod formatter;
 
 use clap::Parser;
 use cli::{Cli, Commands, Source};
-use formatter::{FormattedString, GenericError, ServiceList};
+use formatter::{FormattedString, GenericError};
 use granc_core::client::{Descriptor, DynamicRequest, DynamicResponse, GrancClient};
 use std::process;
 
@@ -28,111 +28,108 @@ async fn main() {
             headers,
             file_descriptor_set,
         } => {
-            let (service, method) = endpoint;
-
-            let request = DynamicRequest {
-                body,
-                headers,
-                service,
-                method,
-            };
-
-            let mut client = unwrap_or_exit(GrancClient::connect(&url).await);
-
-            if let Some(path) = file_descriptor_set {
-                let fd_bytes = unwrap_or_exit(std::fs::read(&path));
-                let mut client = unwrap_or_exit(client.with_file_descriptor(fd_bytes));
-                let response = unwrap_or_exit(client.dynamic(request).await);
-                print_response(response);
-            } else {
-                let response = unwrap_or_exit(client.dynamic(request).await);
-                print_response(response);
-            }
+            let response = call(endpoint, url, body, headers, file_descriptor_set).await;
+            println!("{}", FormattedString::from(response))
         }
 
         Commands::List { source } => {
-            match source.value() {
-                Source::Url(url) => {
-                    // Online (Reflection)
-                    let mut client = unwrap_or_exit(GrancClient::connect(&url).await);
-                    let services = unwrap_or_exit(
-                        client
-                            .list_services()
-                            .await
-                            .map_err(|err| GenericError("Failed to list services:", err)),
-                    );
-                    println!("{}", FormattedString::from(ServiceList(services)));
-                }
-                Source::File(path) => {
-                    // Offline (File)
-                    let fd_bytes = unwrap_or_exit(std::fs::read(&path));
-                    let client = unwrap_or_exit(GrancClient::offline(fd_bytes));
-                    let services = client.list_services();
-                    println!("{}", FormattedString::from(ServiceList(services)));
-                }
-            }
+            let services = list(source.value()).await;
+            println!(
+                "{}",
+                FormattedString::from(formatter::ServiceList(services))
+            )
         }
 
         Commands::Describe { symbol, source } => {
-            match source.value() {
-                Source::Url(url) => {
-                    // Online (Reflection)
-                    let mut client = unwrap_or_exit(GrancClient::connect(&url).await);
-                    let descriptor = unwrap_or_exit(client.get_descriptor_by_symbol(&symbol).await);
-                    print_descriptor(descriptor);
-                }
-                Source::File(path) => {
-                    // Offline (File)
-                    let fd_bytes = unwrap_or_exit(std::fs::read(&path));
-                    let client = unwrap_or_exit(GrancClient::offline(fd_bytes));
-                    let descriptor = unwrap_or_exit(
-                        client
-                            .get_descriptor_by_symbol(&symbol)
-                            .ok_or(GenericError("Symbol not found", symbol)),
-                    );
-                    print_descriptor(descriptor);
-                }
-            }
+            let descriptor = describe(symbol, source.value()).await;
+            println!("{}", FormattedString::from(descriptor))
         }
     }
 }
 
-/// Helper function to return the Ok value or print the error and exit.
-fn unwrap_or_exit<T, E>(result: Result<T, E>) -> T
+async fn call(
+    endpoint: (String, String),
+    url: String,
+    body: serde_json::Value,
+    headers: Vec<(String, String)>,
+    file_descriptor_set: Option<std::path::PathBuf>,
+) -> DynamicResponse {
+    let (service, method) = endpoint;
+
+    let request = DynamicRequest {
+        service,
+        method,
+        body,
+        headers,
+    };
+
+    let mut client = GrancClient::connect(&url).await.unwrap_or_exit();
+
+    if let Some(path) = file_descriptor_set {
+        let bytes = std::fs::read(path).unwrap_or_exit();
+        let mut client = client.with_file_descriptor(bytes).unwrap_or_exit();
+        client.dynamic(request).await.unwrap_or_exit()
+    } else {
+        client.dynamic(request).await.unwrap_or_exit()
+    }
+}
+
+async fn list(source: Source) -> Vec<String> {
+    match source {
+        Source::Url(url) => {
+            let mut client = GrancClient::connect(&url).await.unwrap_or_exit();
+            client
+                .list_services()
+                .await
+                .map_err(|e| GenericError("Failed to list services:", e))
+                .unwrap_or_exit()
+        }
+
+        Source::File(path) => {
+            let fd_bytes = std::fs::read(path).unwrap_or_exit();
+            let client = GrancClient::offline(fd_bytes).unwrap_or_exit();
+            client.list_services()
+        }
+    }
+}
+
+async fn describe(symbol: String, source: Source) -> Descriptor {
+    match source {
+        Source::Url(url) => {
+            let mut client = GrancClient::connect(&url).await.unwrap_or_exit();
+            client
+                .get_descriptor_by_symbol(&symbol)
+                .await
+                .unwrap_or_exit()
+        }
+
+        Source::File(path) => {
+            let fd_bytes = std::fs::read(path).unwrap_or_exit();
+            let client = GrancClient::offline(fd_bytes).unwrap_or_exit();
+            client
+                .get_descriptor_by_symbol(&symbol)
+                .ok_or(GenericError("Symbol not found", symbol))
+                .unwrap_or_exit()
+        }
+    }
+}
+
+// Utility trait to standardize the way we handle errors in the program
+trait UnwrapOrExit<T, E> {
+    fn unwrap_or_exit(self) -> T;
+}
+
+impl<T, E> UnwrapOrExit<T, E> for Result<T, E>
 where
     E: Into<FormattedString>,
 {
-    match result {
-        Ok(v) => v,
-        Err(e) => {
-            eprintln!("{}", Into::<FormattedString>::into(e));
-            process::exit(1);
-        }
-    }
-}
-
-fn print_descriptor(descriptor: Descriptor) {
-    match descriptor {
-        Descriptor::MessageDescriptor(d) => println!("{}", FormattedString::from(d)),
-        Descriptor::ServiceDescriptor(d) => println!("{}", FormattedString::from(d)),
-        Descriptor::EnumDescriptor(d) => println!("{}", FormattedString::from(d)),
-    }
-}
-
-fn print_response(response: DynamicResponse) {
-    match response {
-        DynamicResponse::Unary(Ok(value)) => println!("{}", FormattedString::from(value)),
-        DynamicResponse::Unary(Err(status)) => println!("{}", FormattedString::from(status)),
-        DynamicResponse::Streaming(Ok(values)) => {
-            for elem in values {
-                match elem {
-                    Ok(val) => println!("{}", FormattedString::from(val)),
-                    Err(status) => println!("{}", FormattedString::from(status)),
-                }
+    fn unwrap_or_exit(self) -> T {
+        match self {
+            Ok(v) => v,
+            Err(e) => {
+                eprintln!("{}", Into::<FormattedString>::into(e));
+                process::exit(1);
             }
-        }
-        DynamicResponse::Streaming(Err(status)) => {
-            println!("{}", FormattedString::from(status))
         }
     }
 }

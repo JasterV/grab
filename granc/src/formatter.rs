@@ -1,6 +1,6 @@
 use colored::*;
 use granc_core::{
-    client::{online, online_without_reflection},
+    client::{Descriptor, DynamicResponse, online, online_without_reflection},
     prost_reflect::{
         self, EnumDescriptor, Kind, MessageDescriptor, MethodDescriptor, ServiceDescriptor,
     },
@@ -39,6 +39,26 @@ impl From<Status> for FormattedString {
             status.code(),
             status.message()
         ))
+    }
+}
+
+impl From<DynamicResponse> for FormattedString {
+    fn from(value: DynamicResponse) -> Self {
+        match value {
+            DynamicResponse::Unary(Ok(value)) => FormattedString::from(value),
+            DynamicResponse::Unary(Err(status)) => FormattedString::from(status),
+            DynamicResponse::Streaming(Ok(values)) => {
+                let mut s = String::new();
+                for elem in values {
+                    match elem {
+                        Ok(val) => s.push_str(&FormattedString::from(val).0),
+                        Err(status) => s.push_str(&FormattedString::from(status).0),
+                    }
+                }
+                FormattedString(s)
+            }
+            DynamicResponse::Streaming(Err(status)) => FormattedString::from(status),
+        }
     }
 }
 
@@ -110,6 +130,16 @@ impl From<ServiceList> for FormattedString {
             out.push_str(&format!("  - {}\n", svc.green()));
         }
         FormattedString(out.trim_end().to_string())
+    }
+}
+
+impl From<Descriptor> for FormattedString {
+    fn from(value: Descriptor) -> Self {
+        match value {
+            Descriptor::MessageDescriptor(d) => FormattedString::from(d),
+            Descriptor::ServiceDescriptor(d) => FormattedString::from(d),
+            Descriptor::EnumDescriptor(d) => FormattedString::from(d),
+        }
     }
 }
 

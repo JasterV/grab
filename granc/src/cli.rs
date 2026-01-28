@@ -71,6 +71,10 @@ pub struct SourceSelection {
     file_descriptor_set: Option<PathBuf>,
 }
 
+// The source where to resolve the proto schemas from.
+//
+// It can either be a URL (If the server supports server streaming)
+// or a file (a `.bin` or `.pb` file generated with protoc)
 pub enum Source {
     Url(String),
     File(PathBuf),
