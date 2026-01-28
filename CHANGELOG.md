@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## `granc` - [0.7.0](https://github.com/JasterV/granc/compare/granc-v0.6.0...granc-v0.7.0) - 2026-01-28
 
+### Other
+- release ([#38](https://github.com/JasterV/granc/pull/38))
+- *(deps)* bump clap from 4.5.54 to 4.5.55 ([#36](https://github.com/JasterV/granc/pull/36))
+- [fix] A URL should not be required for list and describe commands  ([#35](https://github.com/JasterV/granc/pull/35))
+
+## `granc` - [0.7.0](https://github.com/JasterV/granc/compare/granc-v0.6.0...granc-v0.7.0) - 2026-01-28
+
 - *(deps)* bump clap from 4.5.54 to 4.5.55 ([#36](https://github.com/JasterV/granc/pull/36))
 - [fix] A URL should not be required for list and describe commands  ([#35](https://github.com/JasterV/granc/pull/35))
 - [test] Added comprehensive tests for CLI argument parsing and validation.
