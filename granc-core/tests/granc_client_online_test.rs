@@ -18,7 +18,7 @@ async fn setup_client() -> GrancClient<Online<Routes>> {
 
     let service = Routes::new(reflection_service).add_service(echo_service);
 
-    GrancClient::from_service(service)
+    GrancClient::from(service)
 }
 
 #[tokio::test]
@@ -27,8 +27,10 @@ async fn test_reflection_list_services() {
     let mut services = client.list_services().await.unwrap();
     services.sort();
 
-    assert!(services.contains(&"echo.EchoService".to_string()));
-    assert!(services.contains(&"grpc.reflection.v1.ServerReflection".to_string()));
+    assert_eq!(
+        services.as_slice(),
+        ["echo.EchoService", "grpc.reflection.v1.ServerReflection"]
+    );
 }
 
 #[tokio::test]

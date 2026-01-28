@@ -58,14 +58,14 @@ impl<T> GrancClient<T> {
     }
 }
 
-/// State: Connected to server, Schema from Server Reflection.
+/// State: Connected to server, Schema resolved from Server Reflection.
 #[derive(Debug, Clone)]
 pub struct Online<S = Channel> {
     reflection_client: ReflectionClient<S>,
     grpc_client: GrpcClient<S>,
 }
 
-/// State: Connected to server, Schema from local FileDescriptor.
+/// State: Connected to server, Schema resolved from local FileDescriptor.
 #[derive(Debug, Clone)]
 pub struct OnlineWithoutReflection<S = Channel> {
     grpc_client: GrpcClient<S>,
@@ -78,7 +78,7 @@ impl<S> OnlineWithoutReflection<S> {
     }
 }
 
-/// State: Disconnected, Schema from local FileDescriptor.
+/// State: Disconnected, Schema resolved from local FileDescriptor.
 #[derive(Debug, Clone)]
 pub struct Offline {
     pool: DescriptorPool,

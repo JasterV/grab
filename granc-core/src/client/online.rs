@@ -1,4 +1,4 @@
-//! # Client State: Online (Reflection)
+//! # Client State: Online (With Server Reflection)
 //!
 //! This module defines the `GrancClient` behavior when it is connected to a server
 //! and using Server Reflection for schema resolution.
@@ -70,18 +70,17 @@ impl GrancClient<Online<Channel>> {
             .await
             .map_err(|e| ClientConnectError::ConnectionFailed(addr.to_string(), e))?;
 
-        Ok(Self::from_service(channel))
+        Ok(GrancClient::from(channel))
     }
 }
 
-impl<S> GrancClient<Online<S>>
+impl<S> From<S> for GrancClient<Online<S>>
 where
     S: tonic::client::GrpcService<tonic::body::Body> + Clone,
     S::ResponseBody: HttpBody<Data = tonic::codegen::Bytes> + Send + 'static,
     <S::ResponseBody as HttpBody>::Error: Into<BoxError> + Send,
 {
-    /// Creates a client from an existing Tonic service/channel.
-    pub fn from_service(service: S) -> Self {
+    fn from(service: S) -> Self {
         let reflection_client = ReflectionClient::new(service.clone());
         let grpc_client = GrpcClient::new(service);
         Self {
@@ -91,7 +90,14 @@ where
             },
         }
     }
+}
 
+impl<S> GrancClient<Online<S>>
+where
+    S: tonic::client::GrpcService<tonic::body::Body> + Clone,
+    S::ResponseBody: HttpBody<Data = tonic::codegen::Bytes> + Send + 'static,
+    <S::ResponseBody as HttpBody>::Error: Into<BoxError> + Send,
+{
     /// Transitions to the **OnlineWithoutReflection** state.
     ///
     /// This keeps the connection but disables reflection, forcing the use of the
@@ -138,7 +144,6 @@ where
             })?;
 
         let pool = DescriptorPool::from_file_descriptor_set(fd_set)?;
-
         let client = GrancClient::new(Offline::new(pool));
 
         client
@@ -148,7 +153,7 @@ where
 
     /// Executes a dynamic gRPC request using Reflection for schema resolution.
     ///
-    /// 1. Fetches the schema for `request.service` via reflection.
+    /// 1. Fetches the schema for the given service via reflection.
     /// 2. Builds a temporary `OnlineWithoutReflection` client.
     /// 3. Executes the call.
     pub async fn dynamic(
@@ -160,6 +165,7 @@ where
             .reflection_client
             .file_descriptor_set_by_symbol(&request.service)
             .await?;
+
         let pool = DescriptorPool::from_file_descriptor_set(fd_set)?;
 
         let mut client = GrancClient::new(OnlineWithoutReflection::new(

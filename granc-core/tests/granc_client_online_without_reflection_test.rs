@@ -10,7 +10,7 @@ mod echo_service_impl;
 
 fn setup_client() -> GrancClient<OnlineWithoutReflection<EchoServiceServer<EchoServiceImpl>>> {
     let service = EchoServiceServer::new(EchoServiceImpl);
-    let client_reflection = GrancClient::from_service(service);
+    let client_reflection = GrancClient::from(service);
 
     client_reflection
         .with_file_descriptor(FILE_DESCRIPTOR_SET.to_vec())
@@ -109,8 +109,6 @@ async fn test_dynamic_bidirectional_streaming_success() {
         _ => panic!("Expected Streaming response"),
     }
 }
-
-// --- Error Cases ---
 
 #[tokio::test]
 async fn test_error_service_not_found() {

@@ -9,8 +9,7 @@ fn test_offline_list_services() {
     let mut services = client.list_services();
     services.sort();
 
-    // The descriptor set contains the EchoService
-    assert!(services.contains(&"echo.EchoService".to_string()));
+    assert_eq!(services.as_slice(), ["echo.EchoService"]);
 }
 
 #[test]
