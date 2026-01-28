@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## `granc` - [0.7.0](https://github.com/JasterV/granc/compare/granc-v0.6.0...granc-v0.7.0) - 2026-01-28
+
+- *(deps)* bump clap from 4.5.54 to 4.5.55 ([#36](https://github.com/JasterV/granc/pull/36))
+- [fix] A URL should not be required for list and describe commands  ([#35](https://github.com/JasterV/granc/pull/35))
+- [test] Added comprehensive tests for CLI argument parsing and validation.
+
+## `granc_core` - [0.6.0](https://github.com/JasterV/granc/compare/granc_core-v0.5.0...granc_core-v0.6.0) - 2026-01-28
+
+- [refactor] Now the `GrancClient` also provides a full offline state and other states have been renamed to be more idiomatic  ([#35](https://github.com/JasterV/granc/pull/35))
+
 ## `granc` - [0.6.0](https://github.com/JasterV/granc/compare/granc-v0.5.1...granc-v0.6.0) - 2026-01-27
 
 - Make the `--file-descriptor-set` a global option for all commands, so reflection commands can also be executed against a local descriptor. ([#28](https://github.com/JasterV/granc/pull/28))
