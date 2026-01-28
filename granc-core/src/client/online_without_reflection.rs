@@ -27,7 +27,27 @@ where
     S::ResponseBody: HttpBody<Data = tonic::codegen::Bytes> + Send + 'static,
     <S::ResponseBody as HttpBody>::Error: Into<BoxError> + Send,
 {
-    /// Executes a dynamic gRPC request using the local descriptor pool.
+    /// Executes a dynamic gRPC request using the locally loaded `FileDescriptorSet`.
+    ///
+    /// Unlike the `Online` state, this method does **not** make any calls to the server's reflection endpoint.
+    /// It relies entirely on the local `DescriptorPool` provided during state transition (see [`super::Online::with_file_descriptor`]).
+    ///
+    /// # Arguments
+    ///
+    /// * `request` - A [`DynamicRequest`] struct containing:
+    ///   - `service`: The fully qualified name of the service (e.g., `my.package.MyService`).
+    ///   - `method`: The name of the method to call (e.g., `MyMethod`).
+    ///   - `body`: The JSON payload.
+    ///   - `headers`: Optional gRPC metadata.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(DynamicResponse)` - The result of the call (Unary or Streaming).
+    /// * `Err(DynamicCallError)` - If validation fails or the network call errors. Specific errors include:
+    ///   - [`DynamicCallError::ServiceNotFound`]: The service is not present in the local descriptor.
+    ///   - [`DynamicCallError::MethodNotFound`]: The method does not exist in the service.
+    ///   - [`DynamicCallError::InvalidInput`]: The JSON body structure is invalid for the streaming mode (e.g. object provided for streaming call).
+    ///   - [`DynamicCallError::GrpcRequestError`]: Transport-level errors (connection failed, timeout, etc).
     pub async fn dynamic(
         &mut self,
         request: DynamicRequest,

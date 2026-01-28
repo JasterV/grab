@@ -25,9 +25,7 @@ impl GrancClient<Offline> {
     /// * `Err(DescriptorError)` - If the bytes are not a valid descriptor set.
     pub fn offline(file_descriptor: Vec<u8>) -> Result<Self, DescriptorError> {
         let pool = DescriptorPool::decode(file_descriptor.as_slice())?;
-        Ok(Self {
-            state: Offline { pool },
-        })
+        Ok(GrancClient::new(Offline::new(pool)))
     }
 }
 
