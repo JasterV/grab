@@ -57,7 +57,7 @@ async fn main() {
             let service_descriptor = descriptor
                 .service_descriptor()
                 .cloned()
-                .ok_or_else(|| GenericError("The symbol must be a Service", symbol))
+                .ok_or(GenericError("The symbol must be a Service", symbol))
                 .unwrap_or_exit();
 
             docgen::markdown::generate(output, service_descriptor)
