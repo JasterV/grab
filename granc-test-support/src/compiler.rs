@@ -1,3 +1,4 @@
+//! This module provides tools to compile protobuffer files at runtime.
 use prost::Message;
 use prost_types::FileDescriptorSet;
 use std::fs;

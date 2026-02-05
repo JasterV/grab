@@ -1,3 +1,9 @@
+//! # Package
+//!
+//! This module defines two types that provide all the information needed to generate documentation about a protobuffer project:
+//!
+//! + [`Package`]: Contains the required data for other modules to be able to generate documentation about a single package.
+//! + [`Packages`]: A collection of packages. It can be constructed from a single Service descriptor.
 use granc_core::{
     client::Descriptor,
     prost_reflect::{EnumDescriptor, Kind, MessageDescriptor, ServiceDescriptor},
@@ -42,7 +48,10 @@ impl From<Descriptor> for Package {
     }
 }
 
-/// Represents a collection of protobuffer packages, each containing the corresponding file descriptors
+/// A collection of protobuffer packages.
+/// It can be constructed from a `ServiceDescriptor`.
+/// Packages are constructed after building a graph of all the descriptor dependencies.
+/// This graph removes duplication of dependencies and ensures the quality of the information provided by each `Package`.
 pub(crate) struct Packages(HashMap<String, Package>);
 
 impl Packages {
@@ -172,23 +181,19 @@ mod tests {
             .get_service_by_name("test.MyService")
             .expect("Service not found");
 
-        // --- Act ---
         let packages = Packages::from(service);
 
-        // --- Assert ---
         let test_package = packages.0.get("test").expect("Package 'test' missing");
 
-        // Verify Services
         assert_eq!(test_package.services.len(), 1);
         assert_eq!(test_package.services[0].name(), "MyService");
 
-        // Verify Messages
         assert_eq!(test_package.messages.len(), 2);
+
         let msg_names: Vec<_> = test_package.messages.iter().map(|m| m.name()).collect();
         assert!(msg_names.contains(&"Request"));
         assert!(msg_names.contains(&"Response"));
 
-        // Verify Enums (Deduplication Check)
         assert_eq!(
             test_package.enums.len(),
             1,
@@ -221,14 +226,16 @@ mod tests {
             .get_service_by_name("cycle.Cycler")
             .expect("Service not found");
 
-        // --- Act ---
         let packages = Packages::from(service);
 
-        // --- Assert ---
         let pkg = packages.0.get("cycle").expect("Package 'cycle' missing");
 
         assert_eq!(pkg.messages.len(), 2);
+        assert_eq!(pkg.services.len(), 1);
+        assert_eq!(pkg.enums.len(), 0);
+
         let names: Vec<_> = pkg.messages.iter().map(|m| m.name()).collect();
+
         assert!(names.contains(&"NodeA"));
         assert!(names.contains(&"NodeB"));
     }
@@ -260,15 +267,20 @@ mod tests {
         let service = pool
             .get_service_by_name("app.AppService")
             .expect("Service not found");
+
         let packages = Packages::from(service);
 
-        // Assert Package 'app'
         let app_pkg = packages.0.get("app").expect("Package 'app' missing");
-        assert_eq!(app_pkg.services.len(), 1);
 
-        // Assert Package 'common' (Ensures traversal follows imports)
+        assert_eq!(app_pkg.services.len(), 1);
+        assert_eq!(app_pkg.messages.len(), 0);
+        assert_eq!(app_pkg.enums.len(), 0);
+
         let common_pkg = packages.0.get("common").expect("Package 'common' missing");
+
         assert_eq!(common_pkg.messages.len(), 1);
         assert_eq!(common_pkg.messages[0].name(), "Shared");
+        assert_eq!(common_pkg.services.len(), 0);
+        assert_eq!(common_pkg.enums.len(), 0);
     }
 }
