@@ -4,6 +4,9 @@ use granc_core::{
 };
 use std::collections::{HashMap, hash_map::Keys};
 
+/// Represents a single protobuffer package.
+///
+/// It contains all the services, messages and enums described in the package.
 pub(crate) struct Package {
     pub name: String,
     pub services: Vec<ServiceDescriptor>,
@@ -39,6 +42,7 @@ impl From<Descriptor> for Package {
     }
 }
 
+/// Represents a collection of protobuffer packages, each containing the corresponding file descriptors
 pub(crate) struct Packages(HashMap<String, Package>);
 
 impl Packages {
@@ -53,47 +57,52 @@ impl Packages {
 
 impl From<ServiceDescriptor> for Packages {
     fn from(value: ServiceDescriptor) -> Self {
-        // Collect all reachable descriptors (Messages, Enums) from the Service methods
-        let mut descriptors: HashMap<String, Descriptor> = value
-            .methods()
-            .flat_map(|m| [m.input(), m.output()])
-            .fold(HashMap::new(), |mut acc, d| {
-                let message_name = d.full_name().to_string();
+        let mut descriptors = collect_service_dependencies(&value);
 
-                if acc.contains_key(&message_name) {
-                    return acc;
-                }
-
-                acc.insert(message_name, Descriptor::MessageDescriptor(d.clone()));
-
-                collect_message_dependencies(acc, &d)
-            });
-
-        // Insert the Service itself
         descriptors.insert(
             value.full_name().to_string(),
             Descriptor::ServiceDescriptor(value),
         );
 
-        // Group into Packages
-        let packages: HashMap<_, Package> =
-            descriptors
-                .into_values()
-                .fold(HashMap::new(), |mut acc, descriptor| {
-                    let package_name = descriptor.package_name();
-
-                    match acc.get_mut(package_name) {
-                        Some(package) => package.push_descriptor(descriptor),
-                        None => {
-                            let _ = acc.insert(package_name.to_string(), Package::from(descriptor));
-                        }
-                    }
-
-                    acc
-                });
-
+        let packages = group_descriptors_by_package(descriptors.into_values());
         Packages(packages)
     }
+}
+
+fn group_descriptors_by_package(
+    descriptors: impl IntoIterator<Item = Descriptor>,
+) -> HashMap<String, Package> {
+    descriptors
+        .into_iter()
+        .fold(HashMap::new(), |mut acc, descriptor| {
+            let package_name = descriptor.package_name();
+
+            match acc.get_mut(package_name) {
+                Some(package) => package.push_descriptor(descriptor),
+                None => {
+                    let _ = acc.insert(package_name.to_string(), Package::from(descriptor));
+                }
+            }
+
+            acc
+        })
+}
+
+fn collect_service_dependencies(service: &ServiceDescriptor) -> HashMap<String, Descriptor> {
+    service
+        .methods()
+        .flat_map(|m| [m.input(), m.output()])
+        .fold(HashMap::new(), |mut acc, d| {
+            let message_name = d.full_name().to_string();
+
+            if acc.contains_key(&message_name) {
+                return acc;
+            }
+
+            acc.insert(message_name, Descriptor::MessageDescriptor(d.clone()));
+
+            collect_message_dependencies(acc, &d)
+        })
 }
 
 fn collect_message_dependencies(
