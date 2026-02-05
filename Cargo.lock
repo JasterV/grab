@@ -213,18 +213,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "echo-service"
-version = "0.0.0"
-dependencies = [
- "bytes",
- "prost",
- "prost-types",
- "tonic",
- "tonic-prost",
- "tonic-prost-build",
-]
-
-[[package]]
 name = "either"
 version = "1.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -340,19 +328,32 @@ version = "0.7.0"
 dependencies = [
  "clap",
  "colored",
+ "granc-test-support",
  "granc_core",
- "prost-build",
  "serde_json",
- "tempfile",
  "tokio",
+]
+
+[[package]]
+name = "granc-test-support"
+version = "0.0.0"
+dependencies = [
+ "bytes",
+ "prost",
+ "prost-build",
+ "prost-types",
+ "tempfile",
+ "tonic",
+ "tonic-prost",
+ "tonic-prost-build",
 ]
 
 [[package]]
 name = "granc_core"
 version = "0.6.0"
 dependencies = [
- "echo-service",
  "futures-util",
+ "granc-test-support",
  "http",
  "http-body",
  "prost",

@@ -1,7 +1,7 @@
-use echo_service::{EchoServiceServer, FILE_DESCRIPTOR_SET};
 use echo_service_impl::EchoServiceImpl;
 use granc_core::client::{DynamicRequest, DynamicResponse, GrancClient, Online, online};
 use granc_core::reflection::client::ReflectionResolveError;
+use granc_test_support::echo_service::{EchoServiceServer, FILE_DESCRIPTOR_SET};
 use tonic::Code;
 use tonic::service::Routes;
 

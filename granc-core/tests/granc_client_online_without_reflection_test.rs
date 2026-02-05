@@ -1,9 +1,9 @@
-use echo_service::{EchoServiceServer, FILE_DESCRIPTOR_SET};
 use echo_service_impl::EchoServiceImpl;
 use granc_core::client::{
     DynamicRequest, DynamicResponse, GrancClient, OnlineWithoutReflection,
     online_without_reflection,
 };
+use granc_test_support::echo_service::{EchoServiceServer, FILE_DESCRIPTOR_SET};
 use tonic::Code;
 
 mod echo_service_impl;

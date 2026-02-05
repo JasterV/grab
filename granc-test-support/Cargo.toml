@@ -1,5 +1,5 @@
 [package]
-name = "echo-service"
+name = "granc-test-support"
 edition = { workspace = true }
 publish = false
 
@@ -9,6 +9,8 @@ prost = { workspace = true }
 tonic = { workspace = true }
 prost-types = { workspace = true }
 tonic-prost = { workspace = true }
+prost-build = { workspace = true }
+tempfile = "3"
 
 [build-dependencies]
 tonic-prost-build = { workspace = true }

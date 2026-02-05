@@ -1,5 +1,5 @@
 [workspace]
-members = ["granc", "granc-core", "echo-service"]
+members = ["granc", "granc-core", "granc-test-support"]
 resolver = "2"
 
 [workspace.package]

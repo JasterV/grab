@@ -21,5 +21,4 @@ serde_json = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
 
 [dev-dependencies]
-prost-build = { workspace = true }
-tempfile = "3"
+granc-test-support = { path = "../granc-test-support" }

@@ -1,6 +1,6 @@
-use echo_service::{EchoServiceServer, FILE_DESCRIPTOR_SET};
 use echo_service_impl::EchoServiceImpl;
 use granc_core::reflection::client::{ReflectionClient, ReflectionResolveError};
+use granc_test_support::echo_service::{EchoServiceServer, FILE_DESCRIPTOR_SET};
 use prost_reflect::DescriptorPool;
 use tonic::Code;
 use tonic_reflection::server::v1::ServerReflectionServer;

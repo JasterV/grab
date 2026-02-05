@@ -1,7 +1,7 @@
-use echo_service::EchoService;
-use echo_service::pb::{EchoRequest, EchoResponse};
 use futures_util::Stream;
 use futures_util::StreamExt;
+use granc_test_support::echo_service::EchoService;
+use granc_test_support::echo_service::pb::{EchoRequest, EchoResponse};
 use std::pin::Pin;
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;

@@ -126,39 +126,12 @@ fn collect_message_dependencies(
 mod tests {
     use super::*;
     use granc_core::prost_reflect::DescriptorPool;
-    use std::fs;
+    use granc_test_support::compiler;
 
-    /// Helper to compile proto strings into a DescriptorPool at runtime.
-    ///
-    /// # Arguments
-    /// * `files` - A list of tuples (filename, content). E.g. `[("test.proto", "syntax=...")]`
     fn compile_protos(files: &[(&str, &str)]) -> DescriptorPool {
-        let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
-        let proto_dir = temp_dir.path().join("protos");
-        fs::create_dir(&proto_dir).expect("Failed to create protos dir");
-
-        let mut proto_paths = Vec::new();
-        for (name, content) in files {
-            let path = proto_dir.join(name);
-            fs::write(&path, content).expect("Failed to write proto file");
-            proto_paths.push(path);
-        }
-
-        let descriptor_path = temp_dir.path().join("descriptor.bin");
-
-        // Compile using prost_build
-        let mut config = prost_build::Config::new();
-        config.file_descriptor_set_path(&descriptor_path);
-        // We set out_dir to temp_dir because we don't care about the generated Rust code,
-        // we only want the descriptor set.
-        config.out_dir(temp_dir.path());
-
-        config
-            .compile_protos(&proto_paths, &[proto_dir])
-            .expect("Failed to compile protos");
-
-        let bytes = fs::read(descriptor_path).expect("Failed to read descriptor set");
-        DescriptorPool::decode(bytes.as_slice()).expect("Failed to decode descriptor pool")
+        let file_descriptor_set = compiler::compile_protos(files);
+        DescriptorPool::from_file_descriptor_set(file_descriptor_set)
+            .expect("Failed to decode descriptor pool")
     }
 
     #[test]
