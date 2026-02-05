@@ -15,7 +15,7 @@ pub fn compile_protos(files: &[(&str, &str)]) -> FileDescriptorSet {
     fs::create_dir(&proto_dir).expect("Failed to create protos dir");
 
     let paths: Vec<_> = files
-        .into_iter()
+        .iter()
         .map(|(name, content)| {
             let path = proto_dir.join(name);
             fs::write(&path, content).expect("Failed to write proto file");
