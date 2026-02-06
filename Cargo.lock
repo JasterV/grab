@@ -324,12 +324,12 @@ dependencies = [
 
 [[package]]
 name = "granc"
-version = "0.7.0"
+version = "0.7.1"
 dependencies = [
  "clap",
  "colored",
  "granc-test-support",
- "granc_core",
+ "granc_core 0.6.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_json",
  "tokio",
 ]
@@ -354,6 +354,26 @@ version = "0.6.1"
 dependencies = [
  "futures-util",
  "granc-test-support",
+ "http",
+ "http-body",
+ "prost",
+ "prost-reflect",
+ "prost-types",
+ "serde_json",
+ "thiserror",
+ "tokio",
+ "tokio-stream",
+ "tonic",
+ "tonic-reflection",
+]
+
+[[package]]
+name = "granc_core"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "12684196af508c702e011ed6d6c3272c089b562fdd7a3e4d481d91859f7cfb89"
+dependencies = [
+ "futures-util",
  "http",
  "http-body",
  "prost",

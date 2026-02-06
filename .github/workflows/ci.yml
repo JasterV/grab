@@ -25,7 +25,6 @@ jobs:
           sudo apt update -y
           sudo apt install -y protobuf-compiler
       - run: cargo make ci
-      - run: cargo make test
 
   alls-green:
     if: always()
