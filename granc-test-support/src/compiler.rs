@@ -3,7 +3,7 @@ use prost::Message;
 use prost_types::FileDescriptorSet;
 use std::fs;
 
-/// Compiles inline proto strings into a DescriptorPool at runtime.
+/// Compiles inline proto strings into a FileDescriptorSet at runtime.
 ///
 /// # Arguments
 /// * `files` - A list of tuples (filename, content). E.g. `[("test.proto", "syntax=...")]`
