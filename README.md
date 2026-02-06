@@ -3,10 +3,6 @@
 [![granc on crates.io](https://img.shields.io/crates/v/granc)](https://crates.io/crates/granc)
 [![License](https://img.shields.io/crates/l/granc.svg)](https://github.com/JasterV/granc/blob/main/LICENSE)
 
-> ⚠️ **Status: Experimental**
->
-> This project is a working prototype intended for testing and development purposes. APIs, command-line arguments, and internal logic are subject to breaking changes. Please use with caution.
-
 **Granc** (gRPC + Cranc, Crab in Catalan) is a lightweight, dynamic gRPC CLI tool written in Rust.
 
 It allows you to make gRPC calls to any server using simple JSON payloads, without needing to compile the specific Protobuf files into the client. By loading a `FileDescriptorSet` at runtime, granc acts as a bridge between human-readable JSON and binary Protobuf wire format.
