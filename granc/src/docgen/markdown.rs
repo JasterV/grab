@@ -40,19 +40,15 @@ fn generate_index(
 ) -> std::io::Result<String> {
     let mut out = String::new();
 
-    out.push_str(&format!("# Documentation: `{}`\n\n", entry_service.name()));
+    out.push_str("# Documentation Index\n\n\n");
 
     let svc_package = entry_service.package_name();
     let svc_link = format!("{}.md#{}", svc_package, entry_service.name());
 
-    out.push_str("## Entry Point\n\n");
-    out.push_str(&format!(
-        "- [**Service: {}**]({})\n",
-        entry_service.name(),
-        svc_link
-    ));
+    out.push_str("## Service\n\n");
+    out.push_str(&format!("- [**{}**]({})\n", entry_service.name(), svc_link));
 
-    out.push_str("\n## Namespaces\n\n");
+    out.push_str("\n## Packages\n\n");
 
     // Collect package names (Google packages included)
     let mut package_names: Vec<_> = packages.names().collect();
@@ -72,9 +68,6 @@ fn generate_index(
 fn generate_package_file(package: &Package) -> std::io::Result<String> {
     let mut out = String::new();
 
-    out.push_str(&format!("# Namespace: `{}`\n\n", package.name));
-
-    // 1. Services (Always on top)
     let mut services = package.services.clone();
     services.sort_by(|a, b| a.name().cmp(b.name()));
 
@@ -85,7 +78,6 @@ fn generate_package_file(package: &Package) -> std::io::Result<String> {
         out.push_str("---\n\n");
     }
 
-    // 2. Messages
     let mut messages = package.messages.clone();
     messages.sort_by(|a, b| a.name().cmp(b.name()));
 
@@ -96,7 +88,6 @@ fn generate_package_file(package: &Package) -> std::io::Result<String> {
         out.push_str("---\n\n");
     }
 
-    // 3. Enums
     let mut enums = package.enums.clone();
     enums.sort_by(|a, b| a.name().cmp(b.name()));
 
@@ -111,14 +102,12 @@ fn generate_package_file(package: &Package) -> std::io::Result<String> {
 }
 
 fn write_anchor(out: &mut String, name: &str) {
-    out.push_str(&format!("<a id=\"{}\"></a>\n", name));
+    out.push_str(&format!("<a id=\"{name}\"></a>\n"));
 }
 
 fn write_service_content(out: &mut String, service: &ServiceDescriptor) {
-    out.push_str("**Type**: `Service`\n\n");
-    out.push_str(&format!("**Full Name**: `{}`\n\n", service.full_name()));
-
     out.push_str("### Definition\n\n```protobuf\n");
+    out.push_str(&format!("package {};\n\n", service.package_name()));
     out.push_str(&FormattedString::from(service.clone()).0);
     out.push_str("\n```\n\n");
 
@@ -143,10 +132,8 @@ fn write_service_content(out: &mut String, service: &ServiceDescriptor) {
 }
 
 fn write_message_content(out: &mut String, message: &MessageDescriptor) {
-    out.push_str("**Type**: `Message`\n\n");
-    out.push_str(&format!("**Full Name**: `{}`\n\n", message.full_name()));
-
     out.push_str("### Definition\n\n```protobuf\n");
+    out.push_str(&format!("package {};\n\n", message.package_name()));
     out.push_str(&FormattedString::from(message.clone()).0);
     out.push_str("\n```\n\n");
 
@@ -186,10 +173,8 @@ fn write_message_content(out: &mut String, message: &MessageDescriptor) {
 }
 
 fn write_enum_content(out: &mut String, enum_desc: &EnumDescriptor) {
-    out.push_str("**Type**: `Enum`\n\n");
-    out.push_str(&format!("**Full Name**: `{}`\n\n", enum_desc.full_name()));
-
     out.push_str("### Definition\n\n```protobuf\n");
+    out.push_str(&format!("package {};\n\n", enum_desc.package_name()));
     out.push_str(&FormattedString::from(enum_desc.clone()).0);
     out.push_str("\n```\n\n");
 }
