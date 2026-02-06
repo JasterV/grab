@@ -32,5 +32,5 @@ tonic = { workspace = true }
 tonic-reflection = { workspace = true }
 
 [dev-dependencies]
-echo-service = { path = "../echo-service" }
+granc-test-support = { path = "../granc-test-support" }
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }

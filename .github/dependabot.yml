@@ -5,6 +5,14 @@ updates:
     schedule:
       interval: "daily"
       time: "09:00"
+    groups:
+      grpc:
+        patterns:
+          - "tonic"
+          - "tonic-*"
+          - "prost"
+          - "prost-*"
+
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:

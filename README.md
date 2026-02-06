@@ -22,6 +22,7 @@ It is heavily inspired by tools like `grpcurl` but built to leverage the safety 
 * **Server Reflection**: Can fetch schemas directly from the server, removing the need to pass a local file descriptor set file (`.bin` or `.pb`).
 * **Introspection Tools**: Commands to list services and describe services, messages, and enums.
   * **Local Introspection**: In addition to making network requests, Granc can also be used as a local introspection tool for file descriptor binary files. You can load a local `.bin` file to inspect services, messages, and enums without needing to fetch the schema from a server.
+* **Documentation Generator**: Generate static, cross-linked Markdown documentation for your services and types directly from the schema. [See a real example](./examples/docs/index.md) generated from this repo's [example protos](./examples/proto/library).
 * **Zero Compilation Dependencies**: Does not require generating Rust code for your protos. Just point to a descriptor file.
 * **Tonic 0.14**: Built on the latest stable Rust gRPC stack.
 
@@ -203,6 +204,36 @@ enum Status {
 }
 
 ```
+
+#### 4. `doc` (Documentation Generator)
+
+Generates static Markdown documentation for a specific service and its dependencies. This is useful for creating browseable documentation for your gRPC APIs.
+
+```bash
+granc doc <SYMBOL> --output <DIR> [OPTIONS]
+```
+
+| Argument/Flag | Short | Description |
+| --- | --- | --- |
+| `<SYMBOL>` |  | Fully qualified name of the Service (e.g., `library.LibraryService`). |
+| `--output` | `-o` | Directory where the markdown files will be generated. |
+| `--uri` | `-u` | Use Server Reflection to resolve the schema. |
+| `--file-descriptor-set` | `-f` | Use a local file to resolve the schema (offline). |
+
+**Generating docs via Reflection:**
+
+```bash
+granc doc helloworld.Greeter --uri http://localhost:50051 --output ./docs
+```
+
+**Generating docs from a file:**
+
+```bash
+granc doc library.LibraryService --file-descriptor-set examples/library.bin --output ./docs
+```
+
+Check out the full [generated documentation example](./examples/docs/index.md) included in this repository.
+These documents were generated directly from the [library example protos](./examples/proto/library) using the command above.
 
 ## 🔮 Roadmap
 

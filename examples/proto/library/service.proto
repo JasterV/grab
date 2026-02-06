@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package library;
+
+import "library/domain.proto";
+import "library/rpc.proto";
+
+// Service for managing a collection of books and authors.
+service LibraryService {
+  // Unary
+  rpc GetBook(library.rpc.GetBookRequest) returns (library.domain.Book);
+
+  // Server Streaming
+  rpc QueryBooks(library.rpc.QueryBooksRequest) returns (stream library.domain.Book);
+
+  // Client Streaming
+  rpc Checkout(stream library.rpc.CheckoutRequest) returns (library.rpc.CheckoutResponse);
+
+  // Bidirectional
+  rpc SupportChat(stream library.rpc.ChatMessage) returns (stream library.rpc.ChatMessage);
+}

@@ -57,6 +57,19 @@ pub enum Commands {
         /// Fully qualified name (e.g. my.package.Service)
         symbol: String,
     },
+
+    /// Generate Markdown documentation for a service.
+    Doc {
+        #[command(flatten)]
+        source: SourceSelection,
+
+        /// Fully qualified service name (e.g. my.package.MyService)
+        symbol: String,
+
+        /// Output directory for the generated markdown files
+        #[arg(long, short = 'o')]
+        output: PathBuf,
+    },
 }
 
 #[derive(Args, Debug)]
@@ -269,6 +282,63 @@ mod tests {
                 assert!(source.uri.is_some());
             }
             _ => panic!("Expected Describe command"),
+        }
+    }
+
+    #[test]
+    fn test_doc_command_reflection() {
+        let args = vec![
+            "granc",
+            "doc",
+            "my.package.Service",
+            "--uri",
+            "http://localhost:50051",
+            "--output",
+            "./docs",
+        ];
+        let cli = Cli::try_parse_from(&args).expect("Parsing failed");
+
+        match cli.command {
+            Commands::Doc {
+                symbol,
+                source,
+                output,
+            } => {
+                assert_eq!(symbol, "my.package.Service");
+                assert_eq!(source.uri.unwrap(), "http://localhost:50051");
+                assert_eq!(output.to_str().unwrap(), "./docs");
+            }
+            _ => panic!("Expected Doc command"),
+        }
+    }
+
+    #[test]
+    fn test_doc_command_offline() {
+        let args = vec![
+            "granc",
+            "doc",
+            "my.package.Service",
+            "--file-descriptor-set",
+            "descriptors.bin",
+            "-o",
+            "./docs",
+        ];
+        let cli = Cli::try_parse_from(&args).expect("Parsing failed");
+
+        match cli.command {
+            Commands::Doc {
+                symbol,
+                source,
+                output,
+            } => {
+                assert_eq!(symbol, "my.package.Service");
+                assert_eq!(
+                    source.file_descriptor_set.unwrap().to_str().unwrap(),
+                    "descriptors.bin"
+                );
+                assert_eq!(output.to_str().unwrap(), "./docs");
+            }
+            _ => panic!("Expected Doc command"),
         }
     }
 

@@ -1,0 +1,16 @@
+[package]
+name = "granc-test-support"
+edition = { workspace = true }
+publish = false
+
+[dependencies]
+bytes = "1"
+prost = { workspace = true }
+tonic = { workspace = true }
+prost-types = { workspace = true }
+tonic-prost = { workspace = true }
+prost-build = { workspace = true }
+tempfile = "3"
+
+[build-dependencies]
+tonic-prost-build = { workspace = true }

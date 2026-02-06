@@ -1,0 +1,32 @@
+syntax = "proto3";
+
+package library.rpc;
+
+import "library/domain.proto";
+
+message GetBookRequest {
+  string isbn = 1;
+}
+
+message QueryBooksRequest {
+  string title_prefix = 1;
+  // Reusing the Genre enum from domain.proto
+  library.domain.Genre genre_filter = 2;
+}
+
+message CheckoutRequest {
+  string isbn = 1;
+}
+
+message CheckoutResponse {
+  // Reusing Book type
+  repeated library.domain.Book checked_out_books = 1;
+  int32 total_items = 2;
+  string due_date = 3;
+}
+
+message ChatMessage {
+  string user_id = 1;
+  string text = 2;
+  int64 timestamp = 3;
+}

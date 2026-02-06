@@ -16,6 +16,9 @@ version = "0.7.0"
 [dependencies]
 clap = { version = "4.5.56", features = ["derive"] }
 colored = "3.1.1"
-granc_core = "0.6.0"
+granc_core = { path = "../granc-core" }
 serde_json = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+
+[dev-dependencies]
+granc-test-support = { path = "../granc-test-support" }

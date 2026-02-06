@@ -1,5 +1,5 @@
-use echo_service::FILE_DESCRIPTOR_SET;
 use granc_core::client::{Descriptor, GrancClient};
+use granc_test_support::echo_service::FILE_DESCRIPTOR_SET;
 
 #[test]
 fn test_offline_list_services() {

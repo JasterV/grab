@@ -1,0 +1,38 @@
+syntax = "proto3";
+
+package library.domain;
+
+enum Genre {
+  UNKNOWN = 0;
+  FICTION = 1;
+  NON_FICTION = 2;
+  SCI_FI = 3;
+  HISTORY = 4;
+}
+
+message Publisher {
+  string id = 1;
+  string name = 2;
+  string address = 3;
+}
+
+// Represents a Book in the collection.
+message Book {
+  string isbn = 1;
+  string title = 2;
+  
+  // Circular Dependency: Book references Author (valid since they are in the same file)
+  Author author = 3;
+  
+  Publisher publisher = 4;
+  
+  Genre genre = 5;
+}
+
+message Author {
+  string id = 1;
+  string full_name = 2;
+  
+  // Circular Dependency: Author references Book
+  repeated Book bibliography = 3;
+}

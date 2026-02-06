@@ -37,6 +37,33 @@ pub enum Descriptor {
 }
 
 impl Descriptor {
+    /// Returns the name (e.g.,`MyMessage`) of the inner descriptor
+    pub fn name(&self) -> &str {
+        match self {
+            Descriptor::MessageDescriptor(v) => v.name(),
+            Descriptor::ServiceDescriptor(v) => v.name(),
+            Descriptor::EnumDescriptor(v) => v.name(),
+        }
+    }
+
+    /// Returns the full_name (e.g.,`my.package.v1.MyMessage`) of the inner descriptor
+    pub fn full_name(&self) -> &str {
+        match self {
+            Descriptor::MessageDescriptor(v) => v.full_name(),
+            Descriptor::ServiceDescriptor(v) => v.full_name(),
+            Descriptor::EnumDescriptor(v) => v.full_name(),
+        }
+    }
+
+    /// Returns the package name (e.g.,`my.package.v1`) of the inner descriptor
+    pub fn package_name(&self) -> &str {
+        match self {
+            Descriptor::MessageDescriptor(v) => v.package_name(),
+            Descriptor::ServiceDescriptor(v) => v.package_name(),
+            Descriptor::EnumDescriptor(v) => v.package_name(),
+        }
+    }
+
     /// Returns the inner [`MessageDescriptor`] if this variant is `MessageDescriptor`.
     pub fn message_descriptor(&self) -> Option<&MessageDescriptor> {
         match self {
