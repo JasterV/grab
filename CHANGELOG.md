@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## `granc` - [0.7.1](https://github.com/JasterV/granc/compare/granc-v0.7.0...granc-v0.7.1) - 2026-02-06
+
+### Other
+- [feat] Generate markdown documentation for gRPC services ([#46](https://github.com/JasterV/granc/pull/46))
+- *(deps)* bump clap from 4.5.55 to 4.5.56 ([#45](https://github.com/JasterV/granc/pull/45))
+
+## `granc_core` - [0.7.0](https://github.com/JasterV/granc/compare/granc_core-v0.6.0...granc_core-v0.7.0) - 2026-02-06
+
+### Other
+- [feat] Generate markdown documentation for gRPC services ([#46](https://github.com/JasterV/granc/pull/46))
+
 ## `granc` - [0.7.0](https://github.com/JasterV/granc/compare/granc-v0.6.0...granc-v0.7.0) - 2026-01-28
 
 - *(deps)* bump clap from 4.5.54 to 4.5.55 ([#36](https://github.com/JasterV/granc/pull/36))
